@@ -1,27 +1,29 @@
--- DemonHub for PS99 (by ChatGPT x toi)
+-- DemonHub for PS99 (Delta Compatible)
 local OrionLib = loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
 
+-- Créer la fenêtre principale avec des options compatibles pour Delta
 local Window = OrionLib:MakeWindow({
     Name = "DemonHub | Pet Simulator 99",
     HidePremium = false,
-    SaveConfig = false,
+    SaveConfig = true,
+    ConfigFolder = "DemonHubConfig",
     IntroEnabled = true,
     IntroText = "DemonHub - PS99"
 })
 
 -- Variables globales
-getgenv().AutoRankFarm = false
-getgenv().AutoCollect = false
-getgenv().AutoTap = false
+_G.AutoRankFarm = false
+_G.AutoCollect = false
+_G.AutoTap = false
 
--- Fonction Anti-AFK
+-- Fonction Anti-AFK compatible avec Delta
 local function AntiAFK()
-    local vu = game:GetService("VirtualUser")
+    local VirtualUser = game:GetService("VirtualUser")
     game:GetService("Players").LocalPlayer.Idled:Connect(function()
-        vu:Button2Down(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
-        wait(1)
-        vu:Button2Up(Vector2.new(0,0), workspace.CurrentCamera.CFrame)
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
     end)
+    print("Anti-AFK Enabled")
 end
 
 AntiAFK()
@@ -33,60 +35,102 @@ local MainTab = Window:MakeTab({
     PremiumOnly = false
 })
 
--- Auto Rank Farm
+-- Auto Rank Farm (corrigé pour Delta)
 MainTab:AddToggle({
     Name = "Auto Farm Rank (1-33)",
     Default = false,
     Callback = function(state)
-        getgenv().AutoRankFarm = state
-        while getgenv().AutoRankFarm do
-            local player = game.Players.LocalPlayer
-            local rank = player:WaitForChild("leaderstats"):FindFirstChild("Rank")
-
-            if rank and tonumber(rank.Value) < 33 then
-                for _, v in pairs(workspace:GetDescendants()) do
-                    if v.Name == "Chest" and v:IsA("Model") then
-                        pcall(function()
-                            game:GetService("ReplicatedStorage").Network:FireServer("StartFarm", v)
-                        end)
+        _G.AutoRankFarm = state
+        
+        spawn(function()
+            while wait(1.5) do
+                if not _G.AutoRankFarm then break end
+                
+                local player = game.Players.LocalPlayer
+                local leaderstats = player:FindFirstChild("leaderstats")
+                
+                if leaderstats then
+                    local rank = leaderstats:FindFirstChild("Rank")
+                    
+                    if rank and tonumber(rank.Value) < 33 then
+                        for _, v in pairs(workspace:GetChildren()) do
+                            if v.Name == "Chest" and v:IsA("Model") and _G.AutoRankFarm then
+                                pcall(function()
+                                    game:GetService("ReplicatedStorage").Network:FireServer("StartFarm", v)
+                                end)
+                            end
+                        end
                     end
                 end
-            else
-                break
             end
-            task.wait(1.5)
-        end
+        end)
     end
 })
 
--- Auto Collect Loot
+-- Auto Collect Loot (corrigé pour Delta)
 MainTab:AddToggle({
     Name = "Auto Collect Loot",
     Default = false,
     Callback = function(state)
-        getgenv().AutoCollect = state
-        while getgenv().AutoCollect do
-            for _, v in pairs(workspace:GetDescendants()) do
-                if v.Name == "Orbs" or v.Name == "Lootbag" then
-                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, v, 0)
-                    firetouchinterest(game.Players.LocalPlayer.Character.HumanoidRootPart, v, 1)
+        _G.AutoCollect = state
+        
+        spawn(function()
+            while wait(1) do
+                if not _G.AutoCollect then break end
+                
+                local character = game.Players.LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local hrp = character.HumanoidRootPart
+                    
+                    -- Recherche correcte des orbes
+                    local orbs = workspace:FindFirstChild("Orbs")
+                    if orbs then
+                        for _, v in pairs(orbs:GetChildren()) do
+                            if v and _G.AutoCollect then
+                                pcall(function()
+                                    firetouchinterest(hrp, v, 0)
+                                    wait()
+                                    firetouchinterest(hrp, v, 1)
+                                end)
+                            end
+                        end
+                    end
+                    
+                    -- Recherche correcte des lootbags
+                    local lootbags = workspace:FindFirstChild("Lootbags")
+                    if lootbags then
+                        for _, v in pairs(lootbags:GetChildren()) do
+                            if v and _G.AutoCollect then
+                                pcall(function()
+                                    firetouchinterest(hrp, v, 0)
+                                    wait()
+                                    firetouchinterest(hrp, v, 1)
+                                end)
+                            end
+                        end
+                    end
                 end
             end
-            task.wait(1)
-        end
+        end)
     end
 })
 
--- Auto Tap
+-- Auto Tap (corrigé pour Delta)
 MainTab:AddToggle({
     Name = "Auto Tap (spam click)",
     Default = false,
     Callback = function(state)
-        getgenv().AutoTap = state
-        while getgenv().AutoTap do
-            game:GetService("ReplicatedStorage").Network:FireServer("Click")
-            task.wait(0.1)
-        end
+        _G.AutoTap = state
+        
+        spawn(function()
+            while wait(0.1) do
+                if not _G.AutoTap then break end
+                
+                pcall(function()
+                    game:GetService("ReplicatedStorage").Network:FireServer("Click")
+                end)
+            end
+        end)
     end
 })
 
@@ -108,16 +152,63 @@ for name, pos in pairs(zones) do
     tpTab:AddButton({
         Name = "TP to " .. name,
         Callback = function()
-            game.Players.LocalPlayer.Character:MoveTo(pos)
+            pcall(function()
+                local char = game.Players.LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    char.HumanoidRootPart.CFrame = CFrame.new(pos)
+                end
+            end)
         end
     })
 end
 
+-- Améliorations pour Delta
+local performanceTab = Window:MakeTab({
+    Name = "Performance",
+    Icon = "rbxassetid://4384401360",
+    PremiumOnly = false
+})
+
+-- Amélioration des performances
+performanceTab:AddButton({
+    Name = "Boost FPS",
+    Callback = function()
+        -- Réduire la qualité graphique
+        local lighting = game:GetService("Lighting")
+        lighting.GlobalShadows = false
+        lighting.FogEnd = 10000
+        
+        -- Désactiver les effets
+        for _, v in pairs(lighting:GetChildren()) do
+            if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") then
+                v.Enabled = false
+            end
+        end
+        
+        -- Désactiver les particules
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") then
+                v.Enabled = false
+            end
+        end
+        
+        -- Notification
+        OrionLib:MakeNotification({
+            Name = "Performance",
+            Content = "FPS Boost activé!",
+            Image = "rbxassetid://4483345998",
+            Time = 5
+        })
+    end
+})
+
 -- Crédit
-Window:MakeNotification({
+OrionLib:MakeNotification({
     Name = "DemonHub Loaded",
     Content = "Parfaitement injecté dans PS99 !",
     Image = "rbxassetid://4483345998",
     Time = 5
 })
 
+-- Fin du script
+OrionLib:Init()
