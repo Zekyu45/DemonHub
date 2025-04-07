@@ -401,4 +401,103 @@ function loadScript()
             spawn(performAutoCollect)
         end
     end)
+
+    -- Auto Farm amélioré pour stabiliser au centre de la zone et se téléporter efficacement
+    MainSection:NewToggle("Auto Farm", "Farm automatiquement les breakables dans la zone débloquée", function(state)
+        _G.autoFarm = state
+        
+        -- Fonction locale pour auto-farm
+        local function performAutoFarm()
+            while _G.autoFarm do
+                if not game:GetService("Players").LocalPlayer then
+                    _G.autoFarm = false
+                    break
+                end
+                
+                -- Obtenir la meilleure zone débloquée dans le monde actuel
+                local zoneName, zonePosition = getBestUnlockedZoneInCurrentWorld()
+                
+                -- Téléporter au centre de la zone et stabiliser
+                local teleportSuccessful = safelyTeleportTo(zonePosition, 20)
+                
+                -- Afficher les informations de la zone
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto Farm",
+                    Text = "Farming dans " .. zoneName,
+                    Duration = 3
+                })
+                
+                if teleportSuccessful then
+                    -- Commencer à farmer les breakables depuis cette position centrale
+                    local farmStartTime = tick()
+                    local farmScanCount = 0
+                    
+                    -- Boucle de farming dans cette zone
+                    while _G.autoFarm and tick() - farmStartTime < 30 and farmScanCount < 10 do
+                        local nearestBreakable = findNearestBreakable()
+                        
+                        if nearestBreakable then
+                            farmScanCount = 0 -- Réinitialiser le compteur si on a trouvé un breakable
+                            
+                            local character = LocalPlayer.Character
+                            if character and character:FindFirstChild("HumanoidRootPart") then
+                                -- Obtenir la partie principale du breakable
+                                local breakablePart = nearestBreakable:FindFirstChild("PrimaryPart") or 
+                                                      nearestBreakable:FindFirstChildWhichIsA("Part")
+                                
+                                if breakablePart then
+                                    -- Se téléporter directement près du breakable avec un petit offset aléatoire
+                                    local offset = Vector3.new(math.random(-2, 2), 3, math.random(-2, 2))
+                                    character.HumanoidRootPart.CFrame = breakablePart.CFrame * CFrame.new(offset)
+                                    
+                                    -- Attaquer avec les pets et cliquer
+                                    ReplicatedStorage.Network:FireServer("PetAttack", nearestBreakable)
+                                    ReplicatedStorage.Network:FireServer("Click", nearestBreakable)
+                                    
+                                    -- Attaquer jusqu'à destruction ou timeout
+                                    local breakableTimeout = tick()
+                                    while nearestBreakable and nearestBreakable:FindFirstChild("Health") and 
+                                          nearestBreakable.Health.Value > 0 and tick() - breakableTimeout < 5 and _G.autoFarm do
+                                        
+                                        -- Attaquer à nouveau
+                                        ReplicatedStorage.Network:FireServer("Click", nearestBreakable)
+                                        
+                                        -- Collecter en même temps
+                                        collectNearbyItems(_G.farmRadius)
+                                        
+                                        wait(0.1)
+                                    end
+                                    
+                                    -- Collecter tous les objets après avoir détruit le breakable
+                                    collectNearbyItems(_G.farmRadius * 1.5)
+                                end
+                            end
+                        else
+                            -- Incrémenter le compteur d'échecs de scan
+                            farmScanCount = farmScanCount + 1
+                            
+                            -- Explorer un peu plus loin si rien n'est trouvé
+                            if farmScanCount > 3 then
+                                -- Essayer de regarder plus loin dans différentes directions
+                                local character = LocalPlayer.Character
+                                if character and character:FindFirstChild("HumanoidRootPart") then
+                                    -- Explorer dans un rayon de la zone en spirale
+                                    local angle = farmScanCount * math.pi / 4
+                                    local radius = 10 + (farmScanCount * 5)
+                                    local exploreOffset = Vector3.new(
+                                        math.cos(angle) * radius,
+                                        0,
+                                        math.sin(angle) * radius
+                                    )
+                                    
+                                    -- Téléportation temporaire pour explorer
+                                    character.HumanoidRootPart.CFrame = CFrame.new(zonePosition + exploreOffset)
+                                    wait(0.5)
+                                end
+                            end
+                            
+                            wait(0.3)
+                        end
+                    end
+                    
     
