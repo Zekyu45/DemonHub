@@ -1,5 +1,5 @@
 -- Script PS99 optimisé pour Delta avec UI amélioré et draggable
--- Version 3.0 avec système de clé et performance optimisée, bugs corrigés
+-- Version 3.5 avec système de clé, téléportations fixes et performance optimisée
 
 -- Système de clé d'authentification (simplifié)
 local keySystem = true -- Activer/désactiver le système de clé
@@ -57,15 +57,14 @@ function loadScript()
     local MainTab = Window:NewTab("Principal")
     local MainSection = MainTab:NewSection("Farming")
 
-    -- Définition des mondes et leurs limites de zones
+    -- Structure corrigée des mondes et leurs limites de zones
     local worlds = {
-        {name = "Spawn World", minZone = 1, maxZone = 25, basePosition = Vector3.new(170, 130, 250), offsetX = 5, offsetZ = 3},
-        {name = "Fantasy World", minZone = 26, maxZone = 50, basePosition = Vector3.new(3057, 130, 2130), offsetX = 0, offsetZ = 3},
-        {name = "Tech World", minZone = 51, maxZone = 75, basePosition = Vector3.new(4325, 130, 1850), offsetX = 3, offsetZ = 0},
-        {name = "Void World", minZone = 76, maxZone = 99, basePosition = Vector3.new(3678, 130, 1340), offsetX = 0, offsetZ = -3}
+        {name = "Spawn World", minZone = 1, maxZone = 99, basePosition = Vector3.new(170, 130, 250), offsetX = 5, offsetZ = 3},
+        {name = "Tech World", minZone = 100, maxZone = 199, basePosition = Vector3.new(4325, 130, 1850), offsetX = 3, offsetZ = 0},
+        {name = "Void World", minZone = 200, maxZone = 239, basePosition = Vector3.new(3678, 130, 1340), offsetX = 0, offsetZ = -3}
     }
 
-    -- Fonction pour déterminer le monde actuel
+    -- Fonction pour déterminer le monde actuel basé sur la position
     local function getCurrentWorld()
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then 
@@ -74,14 +73,13 @@ function loadScript()
         
         local currentPosition = character.HumanoidRootPart.Position
         
-        if currentPosition.X < 1000 then
+        -- Logic améliorée pour identifier le monde actuel
+        if currentPosition.X < 3000 then
             return worlds[1] -- Spawn World
-        elseif currentPosition.X > 2000 and currentPosition.X < 4000 and currentPosition.Z > 1500 then
-            return worlds[2] -- Fantasy World
         elseif currentPosition.X > 4000 then
-            return worlds[3] -- Tech World
+            return worlds[2] -- Tech World
         elseif currentPosition.X > 3000 and currentPosition.Z < 1500 then
-            return worlds[4] -- Void World
+            return worlds[3] -- Void World
         else
             return worlds[1] -- Par défaut, Spawn World
         end
@@ -98,7 +96,7 @@ function loadScript()
         local highestZone = 1
         
         if playerStats and playerStats:FindFirstChild("UnlockedZones") then
-            for i = 1, 99 do
+            for i = 1, 239 do -- Augmenté à 239 pour couvrir toutes les zones possibles
                 if playerStats.UnlockedZones:FindFirstChild("Zone"..i) and playerStats.UnlockedZones["Zone"..i].Value then
                     highestZone = i
                 else
@@ -128,7 +126,7 @@ function loadScript()
         -- Calculer l'offset pour la position de la zone
         local offset = zoneInWorld - currentWorld.minZone + 1
         
-        -- Calculer la position de la zone
+        -- Calculer la position de la zone (au MILIEU de la zone)
         local zonePosition = Vector3.new(
             currentWorld.basePosition.X + (offset * currentWorld.offsetX),
             currentWorld.basePosition.Y,
@@ -138,7 +136,7 @@ function loadScript()
         return currentWorld.name .. " Zone " .. zoneInWorld, zonePosition
     end
 
-    -- Fonction pour trouver le breakable le plus proche avec des optimisations
+    -- Fonction améliorée pour trouver le breakable le plus proche
     local function findNearestBreakable()
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
@@ -193,7 +191,7 @@ function loadScript()
         return nearest
     end
 
-    -- Fonction pour téléporter en toute sécurité
+    -- Fonction améliorée de téléportation sécurisée pour toujours atterrir sur une surface solide
     local function safelyTeleportTo(position, teleportHeight)
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") or not character:FindFirstChild("Humanoid") then
@@ -208,39 +206,62 @@ function loadScript()
         local startTime = tick()
         local isGrounded = false
         
-        -- Boucle pour attendre que le personnage touche le sol ou qu'un délai expire
+        -- Effectuer un rayon vers le bas pour trouver une surface solide
         while not isGrounded and tick() - startTime < 5 do
             wait(0.1)
             
-            -- Vérifier si le personnage est sur le sol
+            -- Vérifier si le personnage est sur le sol ou peut y atterrir
             local rayParams = RaycastParams.new()
             rayParams.FilterType = Enum.RaycastFilterType.Exclude
             rayParams.FilterDescendantsInstances = {character}
             
-            local rayResult = workspace:Raycast(character.HumanoidRootPart.Position, Vector3.new(0, -15, 0), rayParams)
+            -- Rayon plus long pour chercher le sol
+            local rayResult = workspace:Raycast(character.HumanoidRootPart.Position, Vector3.new(0, -100, 0), rayParams)
             if rayResult and rayResult.Instance then
                 isGrounded = true
                 
                 -- Positionner le personnage juste au-dessus du sol trouvé
-                local groundPosition = Vector3.new(position.X, rayResult.Position.Y + 3, position.Z)
+                local groundPosition = Vector3.new(position.X, rayResult.Position.Y + 5, position.Z)
                 character.HumanoidRootPart.CFrame = CFrame.new(groundPosition)
                 
-                -- Désactiver le vol
+                -- Désactiver le vol et stabiliser le personnage
                 character.Humanoid.PlatformStand = false
                 character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
                 
-                -- Réajuster la position si nécessaire
+                -- Réajuster si nécessaire
+                wait(0.2)
                 if character.Humanoid.FloorMaterial == Enum.Material.Air then
-                    character.HumanoidRootPart.CFrame = CFrame.new(groundPosition - Vector3.new(0, 1, 0))
+                    character.HumanoidRootPart.CFrame = CFrame.new(groundPosition - Vector3.new(0, 3, 0))
+                    wait(0.2)
                 end
             end
         end
         
-        -- Si le personnage n'a pas atteint le sol, forcer une position
+        -- Si aucun sol n'est trouvé, élargir la recherche en spirale
         if not isGrounded then
-            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(position.X, position.Y + 2, position.Z))
-            character.Humanoid.PlatformStand = false
-            character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
+            for i = 1, 5 do
+                -- Chercher un sol en spirale croissante
+                for j = 1, 8 do
+                    local angle = j * math.pi / 4
+                    local offset = Vector3.new(math.cos(angle) * i * 5, 0, math.sin(angle) * i * 5)
+                    local testPosition = position + offset
+                    
+                    local rayResult = workspace:Raycast(Vector3.new(testPosition.X, testPosition.Y + 50, testPosition.Z), Vector3.new(0, -100, 0), rayParams)
+                    if rayResult and rayResult.Instance then
+                        -- Sol trouvé, on téléporte
+                        local groundPosition = Vector3.new(testPosition.X, rayResult.Position.Y + 5, testPosition.Z)
+                        character.HumanoidRootPart.CFrame = CFrame.new(groundPosition)
+                        character.Humanoid.PlatformStand = false
+                        character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
+                        return true
+                    end
+                end
+                wait(0.1)
+            end
+            
+            -- Si toujours pas de sol, retourner à la position initiale
+            character.HumanoidRootPart.CFrame = CFrame.new(position)
+            return false
         end
         
         return isGrounded
@@ -281,6 +302,9 @@ function loadScript()
             end
         end
     end
+                spawn(performAutoCollect)
+        end
+    end)
 
     -- Auto Tap complètement recodé pour être efficace
     MainSection:NewToggle("Auto Tap", "Tape automatiquement sur les breakables", function(state)
@@ -340,6 +364,7 @@ function loadScript()
             spawn(performAutoTap)
         end
     end)
+
     -- Auto Collect amélioré avec limitation de zone
     MainSection:NewToggle("Auto Collect", "Collecte automatiquement tous les objets dans la zone", function(state)
         _G.autoCollect = state
@@ -380,7 +405,7 @@ function loadScript()
         end
     end)
 
-    -- Auto Farm complètement recodé
+    -- Auto Farm amélioré pour stabiliser au centre de la zone et se téléporter efficacement
     MainSection:NewToggle("Auto Farm", "Farm automatiquement les breakables dans la zone débloquée", function(state)
         _G.autoFarm = state
         
@@ -395,67 +420,97 @@ function loadScript()
                 -- Obtenir la meilleure zone débloquée dans le monde actuel
                 local zoneName, zonePosition = getBestUnlockedZoneInCurrentWorld()
                 
-                -- Téléporter à la position de sécurité dans la zone
+                -- Téléporter au centre de la zone et stabiliser
                 local teleportSuccessful = safelyTeleportTo(zonePosition, 20)
+                
+                -- Afficher les informations de la zone
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto Farm",
+                    Text = "Farming dans " .. zoneName,
+                    Duration = 3
+                })
+                
                 if teleportSuccessful then
-                    -- Commencer à farmer les breakables
+                    -- Commencer à farmer les breakables depuis cette position centrale
                     local farmStartTime = tick()
+                    local farmScanCount = 0
                     
-                    -- Boucle de farming sur cette zone
-                    while _G.autoFarm and tick() - farmStartTime < 15 do
-                        local nearest = findNearestBreakable()
+                    -- Boucle de farming dans cette zone
+                    while _G.autoFarm and tick() - farmStartTime < 30 and farmScanCount < 10 do
+                        local nearestBreakable = findNearestBreakable()
                         
-                        if nearest then
+                        if nearestBreakable then
+                            farmScanCount = 0 -- Réinitialiser le compteur si on a trouvé un breakable
+                            
                             local character = LocalPlayer.Character
                             if character and character:FindFirstChild("HumanoidRootPart") then
                                 -- Obtenir la partie principale du breakable
-                                local breakablePart = nearest:FindFirstChild("PrimaryPart") or nearest:FindFirstChildWhichIsA("Part")
+                                local breakablePart = nearestBreakable:FindFirstChild("PrimaryPart") or 
+                                                      nearestBreakable:FindFirstChildWhichIsA("Part")
+                                
                                 if breakablePart then
-                                    -- Se téléporter près du breakable mais pas exactement dessus
+                                    -- Se téléporter directement près du breakable avec un petit offset aléatoire
                                     local offset = Vector3.new(math.random(-2, 2), 3, math.random(-2, 2))
                                     character.HumanoidRootPart.CFrame = breakablePart.CFrame * CFrame.new(offset)
                                     
                                     -- Attaquer avec les pets et cliquer
-                                    ReplicatedStorage.Network:FireServer("PetAttack", nearest)
-                                    ReplicatedStorage.Network:FireServer("Click", nearest)
+                                    ReplicatedStorage.Network:FireServer("PetAttack", nearestBreakable)
+                                    ReplicatedStorage.Network:FireServer("Click", nearestBreakable)
                                     
-                                    -- Attendre jusqu'à ce que le breakable soit détruit ou timeout
+                                    -- Attaquer jusqu'à destruction ou timeout
                                     local breakableTimeout = tick()
-                                    while nearest and nearest:FindFirstChild("Health") and nearest.Health.Value > 0 and 
-                                          tick() - breakableTimeout < 5 and _G.autoFarm do
+                                    while nearestBreakable and nearestBreakable:FindFirstChild("Health") and 
+                                          nearestBreakable.Health.Value > 0 and tick() - breakableTimeout < 5 and _G.autoFarm do
                                         
-                                        ReplicatedStorage.Network:FireServer("Click", nearest)
-                                        collectNearbyItems(_G.farmRadius) -- Collecter en cassant
+                                        -- Attaquer à nouveau
+                                        ReplicatedStorage.Network:FireServer("Click", nearestBreakable)
+                                        
+                                        -- Collecter en même temps
+                                        collectNearbyItems(_G.farmRadius)
                                         
                                         wait(0.1)
                                     end
+                                    
+                                    -- Collecter tous les objets après avoir détruit le breakable
+                                    collectNearbyItems(_G.farmRadius * 1.5)
                                 end
                             end
                         else
-                            -- Si aucun breakable n'est trouvé, explorer un peu la zone
-                            local character = LocalPlayer.Character
-                            if character and character:FindFirstChild("HumanoidRootPart") then
-                                -- Explorer dans un rayon de la zone
-                                local randomOffset = Vector3.new(math.random(-15, 15), 0, math.random(-15, 15))
-                                safelyTeleportTo(zonePosition + randomOffset, 5)
-                                
-                                -- Attendre un peu avant de continuer la recherche
-                                wait(1)
+                            -- Incrémenter le compteur d'échecs de scan
+                            farmScanCount = farmScanCount + 1
+                            
+                            -- Explorer un peu plus loin si rien n'est trouvé
+                            if farmScanCount > 3 then
+                                -- Essayer de regarder plus loin dans différentes directions
+                                local character = LocalPlayer.Character
+                                if character and character:FindFirstChild("HumanoidRootPart") then
+                                    -- Explorer dans un rayon de la zone en spirale
+                                    local angle = farmScanCount * math.pi / 4
+                                    local radius = 10 + (farmScanCount * 5)
+                                    local exploreOffset = Vector3.new(
+                                        math.cos(angle) * radius,
+                                        0,
+                                        math.sin(angle) * radius
+                                    )
+                                    
+                                    -- Téléportation temporaire pour explorer
+                                    character.HumanoidRootPart.CFrame = CFrame.new(zonePosition + exploreOffset)
+                                    wait(0.5)
+                                end
                             end
+                            
+                            wait(0.3)
                         end
-                        
-                        -- Collecter les items
-                        collectNearbyItems(_G.farmRadius)
-                        
-                        -- Petit délai pour éviter surcharge
-                        wait(0.1)
                     end
+                    
+                    -- Une fois que le cycle de farm est terminé, retourner au centre de la zone
+                    safelyTeleportTo(zonePosition, 10)
                 else
                     -- Si la téléportation échoue, attendre avant de réessayer
                     wait(3)
                 end
                 
-                -- Délai entre les cycles complets de farming
+                -- Petit délai entre les cycles complets de farming
                 wait(0.5)
             end
         end
@@ -471,55 +526,120 @@ function loadScript()
         _G.farmRadius = value
     end)
 
-    -- Tab Téléportation
+    -- Tab Téléportation avec correction des téléportations
     local TeleportTab = Window:NewTab("Téléportation")
     local TeleportSection = TeleportTab:NewSection("Zones")
 
     -- Téléportation à la dernière zone débloquée dans le monde actuel
     TeleportSection:NewButton("Meilleure zone du monde actuel", "Téléporte à la meilleure zone débloquée", function()
         local zoneName, zonePosition = getBestUnlockedZoneInCurrentWorld()
-        safelyTeleportTo(zonePosition, 15)
+        local success = safelyTeleportTo(zonePosition, 15)
         
         -- Afficher un message pour informer l'utilisateur
-        StarterGui:SetCore("SendNotification", {
-            Title = "Téléportation",
-            Text = "Téléporté à: " .. zoneName,
-            Duration = 3
-        })
-    end)
-
-    -- Ajouter un bouton pour chaque monde
-    for i, world in ipairs(worlds) do
-        TeleportSection:NewButton(world.name, "Téléporte au " .. world.name, function()
-            -- Téléporter à la première zone du monde
-            safelyTeleportTo(world.basePosition, 15)
-            
+        if success then
             StarterGui:SetCore("SendNotification", {
                 Title = "Téléportation",
-                Text = "Téléporté à: " .. world.name,
+                Text = "Téléporté à: " .. zoneName,
                 Duration = 3
             })
+        else
+            StarterGui:SetCore("SendNotification", {
+                Title = "Téléportation",
+                Text = "Erreur: Impossible de trouver un sol solide",
+                Duration = 3
+            })
+        end
+    end)
+
+    -- Ajouter un bouton pour chaque monde avec téléportation sécurisée
+    for i, world in ipairs(worlds) do
+        TeleportSection:NewButton(world.name, "Téléporte au " .. world.name, function()
+            -- Points de téléportation sécurisés pour chaque monde
+            local safePositions = {
+                [1] = Vector3.new(170, 130, 250), -- Spawn World
+                [2] = Vector3.new(4325, 130, 1850), -- Tech World
+                [3] = Vector3.new(3678, 130, 1340), -- Void World
+            }
+            
+            -- Téléporter à la position sécurisée du monde
+            local success = safelyTeleportTo(safePositions[i], 15)
+            
+            if success then
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Téléportation",
+                    Text = "Téléporté à: " .. world.name,
+                    Duration = 3
+                })
+            else
+                -- Réessayer avec une hauteur différente si la première tentative échoue
+                success = safelyTeleportTo(safePositions[i], 30)
+                
+                if success then
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Téléportation",
+                        Text = "Téléporté à: " .. world.name .. " (2e essai)",
+                        Duration = 3
+                    })
+                else
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Téléportation",
+                        Text = "Erreur: Impossible de trouver un sol solide",
+                        Duration = 3
+                    })
+                end
+            end
         end)
     end
 
-    -- Téléportation aléatoire sécuritaire
-    TeleportSection:NewButton("Zone aléatoire sécuritaire", "Téléporte à un endroit aléatoire sécuritaire", function()
-        local character = LocalPlayer.Character
-        if character and character:FindFirstChild("HumanoidRootPart") then
-            pcall(function()
-                local currentPos = character.HumanoidRootPart.Position
-                local randomOffset = Vector3.new(math.random(-50, 50), 0, math.random(-50, 50))
-                -- Ajouter une hauteur sécuritaire
-                safelyTeleportTo(currentPos + randomOffset, 10)
+    -- Téléportation à des zones spécifiques
+    TeleportSection:NewSection("Zones spécifiques")
+    
+    -- Ajouter des boutons pour des zones spécifiques dans chaque monde
+    local specificZones = {
+        {world = "Spawn World", zone = 50, name = "Spawn Zone 50"},
+        {world = "Tech World", zone = 150, name = "Tech Zone 150"},
+        {world = "Void World", zone = 220, name = "Void Zone 220"}
+    }
+    
+    for _, zoneInfo in ipairs(specificZones) do
+        TeleportSection:NewButton(zoneInfo.name, "Téléporte à " .. zoneInfo.name, function()
+            -- Trouver le monde correspondant
+            local worldData
+            for _, world in ipairs(worlds) do
+                if world.name == zoneInfo.world then
+                    worldData = world
+                    break
+                end
+            end
+            
+            if worldData then
+                -- Calculer la position de la zone spécifique
+                local offset = zoneInfo.zone - worldData.minZone + 1
+                local zonePosition = Vector3.new(
+                    worldData.basePosition.X + (offset * worldData.offsetX),
+                    worldData.basePosition.Y,
+                    worldData.basePosition.Z + (offset * worldData.offsetZ)
+                )
                 
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Téléportation",
-                    Text = "Téléporté à une zone aléatoire",
-                    Duration = 3
-                })
-            end)
-        end
-    end)
+                -- Téléporter à cette zone spécifique
+                local success = safelyTeleportTo(zonePosition, 15)
+                
+                if success then
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Téléportation",
+                        Text = "Téléporté à: " .. zoneInfo.name,
+                        Duration = 3
+                    })
+                else
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Téléportation",
+                        Text = "Erreur: Impossible de trouver un sol solide",
+                        Duration = 3
+                    })
+                end
+            end
+        end)
+    end
 
     -- Tab Performance
     local PerformanceTab = Window:NewTab("Performance")
@@ -612,7 +732,7 @@ function loadScript()
     local InfoTab = Window:NewTab("Info")
     local InfoSection = InfoTab:NewSection("Informations")
     
-    InfoSection:NewLabel("Version: 3.0")
+    InfoSection:NewLabel("Version: 3.5")
     InfoSection:NewLabel("Mobile Optimisé: Oui")
     InfoSection:NewLabel("Clé: "..correctKey)
     InfoSection:NewLabel("Dernière zone débloquée: Zone " .. getHighestUnlockedZone())
@@ -620,131 +740,6 @@ function loadScript()
     -- Bouton pour rafraîchir les informations
     InfoSection:NewButton("Rafraîchir Infos", "Met à jour les informations du script", function()
         InfoSection:UpdateLabel("Dernière zone débloquée: Zone " .. getHighestUnlockedZone())
-        
-        StarterGui:SetCore("SendNotification", {
-            Title = "Information",
-            Text = "Informations mises à jour!",
-            Duration = 3
-        })
-    end)
 
-    -- Créer un gestionnaire de notification personnalisé
-    local function showNotification(title, text, duration)
-        pcall(function()
-            StarterGui:SetCore("SendNotification", {
-                Title = title,
-                Text = text,
-                Duration = duration or 3
-            })
-        end)
-    end
-    
-    -- Afficher un message de bienvenue
-    showNotification("PS99 Mobile Pro", "Script chargé avec succès!", 5)
-end
 
--- Fonction améliorée pour le système de clé avec gestion d'erreurs
-local function createSimpleKeyUI()
-    -- Supprimer l'ancien système de clé s'il existe
-    for _, ui in pairs(game.Players.LocalPlayer.PlayerGui:GetChildren()) do
-        if ui.Name == "SimpleKeySystem" then
-            ui:Destroy()
-        end
-    end
-    
-    -- Créer une nouvelle interface
-    pcall(function()
-        local ScreenGui = Instance.new("ScreenGui")
-        ScreenGui.Name = "SimpleKeySystem"
-        ScreenGui.ResetOnSpawn = false
-        ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-        ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
         
-        local MainFrame = Instance.new("Frame")
-        MainFrame.Name = "MainFrame"
-        MainFrame.Size = UDim2.new(0, 250, 0, 120)
-        MainFrame.Position = UDim2.new(0.5, -125, 0.5, -60)
-        MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-        MainFrame.BorderSizePixel = 0
-        MainFrame.Visible = true
-        MainFrame.Parent = ScreenGui
-        
-        local Title = Instance.new("TextLabel")
-        Title.Name = "Title"
-        Title.Size = UDim2.new(1, 0, 0, 30)
-        Title.Position = UDim2.new(0, 0, 0, 0)
-        Title.BackgroundColor3 = Color3.fromRGB(0, 85, 127)
-        Title.BorderSizePixel = 0
-        Title.Text = "PS99 Mobile Pro - Clé"
-        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-        Title.Font = Enum.Font.SourceSansBold
-        Title.TextSize = 18
-        Title.Parent = MainFrame
-        
-        local KeyInput = Instance.new("TextBox")
-        KeyInput.Name = "KeyInput"
-        KeyInput.Size = UDim2.new(0.8, 0, 0, 30)
-        KeyInput.Position = UDim2.new(0.1, 0, 0.4, 0)
-        KeyInput.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-        KeyInput.BorderSizePixel = 0
-        KeyInput.PlaceholderText = "Entrez la clé ici..."
-        KeyInput.Text = ""
-        KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-        KeyInput.Font = Enum.Font.SourceSans
-        KeyInput.TextSize = 16
-        KeyInput.Parent = MainFrame
-        
-        local SubmitButton = Instance.new("TextButton")
-        SubmitButton.Name = "SubmitButton"
-        SubmitButton.Size = UDim2.new(0.6, 0, 0, 25)
-        SubmitButton.Position = UDim2.new(0.2, 0, 0.7, 0)
-        SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 180)
-        SubmitButton.BorderSizePixel = 0
-        SubmitButton.Text = "Valider"
-        SubmitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        SubmitButton.Font = Enum.Font.SourceSansBold
-        SubmitButton.TextSize = 16
-        SubmitButton.Parent = MainFrame
-        
-        -- Fonction de validation de la clé
-        local function validateKey()
-            local inputKey = KeyInput.Text
-            
-            if inputKey == correctKey then
-                ScreenGui:Destroy()
-                loadScript()
-            else
-                Title.Text = "Clé incorrecte!"
-                Title.BackgroundColor3 = Color3.fromRGB(180, 0, 0)
-                wait(1.5)
-                Title.Text = "PS99 Mobile Pro - Clé"
-                Title.BackgroundColor3 = Color3.fromRGB(0, 85, 127)
-            end
-        end
-        
-        -- Connecter le bouton à la fonction de validation
-        SubmitButton.MouseButton1Click:Connect(validateKey)
-        
-        -- Aussi valider quand on appuie sur Entrée
-        KeyInput.FocusLost:Connect(function(enterPressed)
-            if enterPressed then
-                validateKey()
-            end
-        end)
-    end)
-end
-
--- Fonction pour démarrer le script avec le système de clé
-local function startScript()
-    -- Vérifier si le système de clé est activé
-    if keySystem then
-        createSimpleKeyUI()
-    else
-        -- Sinon charger directement le script
-        loadScript()
-    end
-end
-
--- Démarrer le script après un petit délai pour s'assurer que tout est chargé
-wait(1)
-startScript()
