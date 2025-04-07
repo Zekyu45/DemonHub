@@ -740,6 +740,125 @@ function loadScript()
     -- Bouton pour rafraîchir les informations
     InfoSection:NewButton("Rafraîchir Infos", "Met à jour les informations du script", function()
         InfoSection:UpdateLabel("Dernière zone débloquée: Zone " .. getHighestUnlockedZone())
+        
+        StarterGui:SetCore("SendNotification", {
+            Title = "Information",
+            Text = "Informations mises à jour!",
+            Duration = 3
+        })
+    end)
+    
+    -- UI Settings pour permettre le drag et autres options UI
+    local UISettingsTab = Window:NewTab("UI Settings")
+    local UISettingsSection = UISettingsTab:NewSection("Paramètres d'interface")
+    
+    -- Option pour minimiser l'UI
+    UISettingsSection:NewToggle("Minimiser UI", "Cache/Affiche l'interface", function(state)
+        _G.uiMinimized = state
+        
+        for _, tab in pairs(Window.Tabs) do
+            if tab.Name ~= "UI Settings" then
+                for _, section in pairs(tab.Sections) do
+                    section.Frame.Visible = not _G.uiMinimized
+                end
+            end
+        end
+        
+        StarterGui:SetCore("SendNotification", {
+            Title = "UI Settings",
+            Text = _G.uiMinimized and "Interface minimisée" or "Interface restaurée",
+            Duration = 2
+        })
+    end)
+    
+    -- Ajouter une option pour afficher/masquer les notifications
+    local notificationsEnabled = true
+    UISettingsSection:NewToggle("Notifications", "Active/Désactive les notifications", function(state)
+        notificationsEnabled = state
+        
+        -- Remplacer la fonction de notification si désactivé
+        if not notificationsEnabled then
+            local oldSetCore = StarterGui.SetCore
+            StarterGui.SetCore = function(self, ...)
+                local args = {...}
+                if args[1] == "SendNotification" then
+                    return -- Ne rien faire si c'est une notification
+                end
+                return oldSetCore(self, ...)
+            end
+        else
+            -- Restaurer la fonction originale
+            StarterGui.SetCore = game:GetService("StarterGui").SetCore
+        end
+        
+        -- Afficher une dernière notification
+        if notificationsEnabled then
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "UI Settings",
+                Text = "Notifications activées",
+                Duration = 2
+            })
+        end
+    end)
+    
+    -- Fonction pour montrer une notification de bienvenue
+    local function showWelcomeNotification()
+        -- Délai pour s'assurer que l'UI est chargée
+        wait(1)
+        StarterGui:SetCore("SendNotification", {
+            Title = "PS99 Mobile Pro",
+            Text = "Script chargé avec succès! Version 3.5",
+            Duration = 5
+        })
+    end
+    
+    -- Afficher le message de bienvenue
+    showWelcomeNotification()
+    
+    -- Configuration d'anti-détection basique
+    pcall(function()
+        local MT = getrawmetatable(game)
+        local oldNamecall = MT.__namecall
+        setreadonly(MT, false)
+        
+        MT.__namecall = newcclosure(function(self, ...)
+            local args = {...}
+            local method = getnamecallmethod()
+            
+            -- Bloquer certaines méthodes de détection
+            if method == "Kick" or method == "FireServer" and args[1] == "BanRemote" then
+                return nil
+            end
+            
+            return oldNamecall(self, ...)
+        end)
+        
+        setreadonly(MT, true)
+    end)
+    
+    return true -- Retourne vrai si le script a été chargé avec succès
+end
+
+-- Gérer le système de clé
+if keySystem then
+    -- Créer l'interface du système de clé
+    local keyInterface = createSimpleKeyUI()
+    
+    -- Si une clé a été précédemment enregistrée et valide, charger directement le script
+    local savedKey = game:GetService("Players").LocalPlayer:FindFirstChild("SavedKey")
+    if savedKey and savedKey.Value == correctKey then
+        loadScript()
+    else
+        -- Attendre l'entrée de la clé
+        -- Note: Cette partie nécessiterait une implémentation d'interface utilisateur
+        -- que nous simulons ici en chargeant directement le script
+        print("Entrez la clé ou utilisez 'zekyu'")
+        loadScript()
+    end
+else
+    -- Si le système de clé est désactivé, charger directement le script
+    loadScript()
+end
 
 
         
