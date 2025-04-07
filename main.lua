@@ -783,5 +783,291 @@ PerformanceSection:NewButton("Boost FPS", "Améliore les performances", function
         })
     end)
 end)
+-- Ajout d'un bouton pour supprimer les textures
+PerformanceSection:NewButton("Supprimer Textures", "Supprime les textures pour augmenter les FPS", function()
+   pcall(function()
+       for _, v in pairs(workspace:GetDescendants()) do
+           if v:IsA("Decal") or v:IsA("Texture") then
+               v.Transparency = 1
+           end
+           if v:IsA("MeshPart") then
+               v.TextureID = ""
+           end
+       end
+       
+       StarterGui:SetCore("SendNotification", {
+           Title = "Performance",
+           Text = "Textures supprimées!",
+           Duration = 3
+       })
+   end)
+end)
+
+-- Ajout d'un bouton pour supprimer les effets non essentiels
+PerformanceSection:NewButton("Supprimer Effets", "Supprime les effets visuels pour plus de FPS", function()
+   pcall(function()
+       for _, v in pairs(workspace:GetDescendants()) do
+           if v:IsA("ParticleEmitter") or v:IsA("Fire") or v:IsA("Smoke") or v:IsA("Sparkles") then
+               v.Enabled = false
+           end
+       end
+       
+       -- Désactiver les sons non essentiels
+       for _, v in pairs(workspace:GetDescendants()) do
+           if v:IsA("Sound") and v.Name ~= "HumanoidRunningSounds" then
+               v.Volume = 0
+           end
+       end
+       
+       StarterGui:SetCore("SendNotification", {
+           Title = "Performance",
+           Text = "Effets supprimés!",
+           Duration = 3
+       })
+   end)
+end)
+-- Tab Info Supplémentaire
+local InfoTab = Window:NewTab("Info")
+local InfoSection = InfoTab:NewSection("Informations")
+
+InfoSection:NewLabel("Version: 3.5")
+InfoSection:NewLabel("Mobile Optimisé: Oui")
+InfoSection:NewLabel("Clé: "..correctKey)
+InfoSection:NewLabel("Dernière zone débloquée: Zone " .. getHighestUnlockedZone())
+
+-- Bouton pour rafraîchir les informations
+InfoSection:NewButton("Rafraîchir Infos", "Met à jour les informations du script", function()
+   InfoSection:UpdateLabel("Dernière zone débloquée: Zone " .. getHighestUnlockedZone())
+   
+   StarterGui:SetCore("SendNotification", {
+       Title = "Information",
+       Text = "Informations mises à jour!",
+       Duration = 3
+   })
+end)
+
+-- UI Settings pour permettre le drag et autres options UI
+local UISettingsTab = Window:NewTab("UI Settings")
+local UISettingsSection = UISettingsTab:NewSection("Paramètres d'interface")
+
+-- Option pour minimiser l'UI
+UISettingsSection:NewToggle("Minimiser UI", "Cache/Affiche l'interface", function(state)
+   _G.uiMinimized = state
+   
+   for _, tab in pairs(Window.Tabs) do
+       if tab.Name ~= "UI Settings" then
+           for _, section in pairs(tab.Sections) do
+               section.Frame.Visible = not _G.uiMinimized
+           end
+       end
+   end
+   
+   StarterGui:SetCore("SendNotification", {
+       Title = "UI Settings",
+       Text = _G.uiMinimized and "Interface minimisée" or "Interface restaurée",
+       Duration = 2
+   })
+end)
+
+-- Ajouter une option pour afficher/masquer les notifications
+local notificationsEnabled = true
+UISettingsSection:NewToggle("Notifications", "Active/Désactive les notifications", function(state)
+   notificationsEnabled = state
+   
+   -- Remplacer la fonction de notification si désactivé
+   if not notificationsEnabled then
+       local oldSetCore = StarterGui.SetCore
+       StarterGui.SetCore = function(self, ...)
+           local args = {...}
+           if args[1] == "SendNotification" then
+               return -- Ne rien faire si c'est une notification
+           end
+           return oldSetCore(self, ...)
+       end
+   else
+       -- Restaurer la fonction originale
+       StarterGui.SetCore = game:GetService("StarterGui").SetCore
+   end
+   
+   -- Afficher une dernière notification
+   if notificationsEnabled then
+       game:GetService("StarterGui"):SetCore("SendNotification", {
+           Title = "UI Settings",
+           Text = "Notifications activées",
+           Duration = 2
+       })
+   end
+end)
+
+-- Fonction pour montrer une notification de bienvenue
+local function showWelcomeNotification()
+   -- Délai pour s'assurer que l'UI est chargée
+   wait(1)
+   StarterGui:SetCore("SendNotification", {
+       Title = "PS99 Mobile Pro",
+       Text = "Script chargé avec succès! Version 3.5",
+       Duration = 5
+   })
+end
+
+-- Afficher le message de bienvenue
+showWelcomeNotification()
+
+-- Configuration d'anti-détection basique
+pcall(function()
+   local MT = getrawmetatable(game)
+   local oldNamecall = MT.__namecall
+   setreadonly(MT, false)
+   
+   MT.__namecall = newcclosure(function(self, ...)
+       local args = {...}
+       local method = getnamecallmethod()
+       
+       -- Bloquer certaines méthodes de détection
+       if method == "Kick" or method == "FireServer" and args[1] == "BanRemote" then
+           return nil
+       end
+       
+       return oldNamecall(self, ...)
+   end)
+   
+   setreadonly(MT, true)
+end)
+
+return true -- Retourne vrai si le script a été chargé avec succès
+end
+
+-- Fonction pour créer une interface utilisateur simple pour la saisie de clé
+function createSimpleKeyUI()
+    -- Créer une interface utilisateur simple pour la saisie de la clé
+    local KeyUI = Instance.new("ScreenGui")
+    local MainFrame = Instance.new("Frame")
+    local Title = Instance.new("TextLabel")
+    local KeyInput = Instance.new("TextBox")
+    local SubmitButton = Instance.new("TextButton")
+    local StatusLabel = Instance.new("TextLabel")
+    
+    -- Configurer l'interface
+    KeyUI.Name = "KeyUI"
+    KeyUI.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    KeyUI.ResetOnSpawn = false
+    
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = KeyUI
+    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    MainFrame.BorderSizePixel = 2
+    MainFrame.BorderColor3 = Color3.fromRGB(0, 150, 255)
+    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
+    MainFrame.Size = UDim2.new(0, 300, 0, 200)
+    MainFrame.Active = true
+    MainFrame.Draggable = true
+    
+    Title.Name = "Title"
+    Title.Parent = MainFrame
+    Title.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    Title.BorderSizePixel = 0
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = "PS99 Mobile Pro - Authentification"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 18.000
+    
+    KeyInput.Name = "KeyInput"
+    KeyInput.Parent = MainFrame
+    KeyInput.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    KeyInput.BorderSizePixel = 1
+    KeyInput.BorderColor3 = Color3.fromRGB(0, 120, 215)
+    KeyInput.Position = UDim2.new(0.1, 0, 0.3, 0)
+    KeyInput.Size = UDim2.new(0.8, 0, 0, 40)
+    KeyInput.Font = Enum.Font.Gotham
+    KeyInput.PlaceholderText = "Entrez votre clé ici..."
+    KeyInput.Text = ""
+    KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    KeyInput.TextSize = 16.000
+    KeyInput.ClearTextOnFocus = true
+    
+    SubmitButton.Name = "SubmitButton"
+    SubmitButton.Parent = MainFrame
+    SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    SubmitButton.BorderSizePixel = 0
+    SubmitButton.Position = UDim2.new(0.25, 0, 0.6, 0)
+    SubmitButton.Size = UDim2.new(0.5, 0, 0, 35)
+    SubmitButton.Font = Enum.Font.GothamBold
+    SubmitButton.Text = "Valider"
+    SubmitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SubmitButton.TextSize = 16.000
+    
+    StatusLabel.Name = "StatusLabel"
+    StatusLabel.Parent = MainFrame
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
+    StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+    StatusLabel.Font = Enum.Font.Gotham
+    StatusLabel.Text = "Entrez la clé: zekyu"
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StatusLabel.TextSize = 14.000
+    
+    -- Fonction pour vérifier la clé
+    local function checkKey()
+        local inputKey = KeyInput.Text
+        
+        if inputKey == correctKey then
+            StatusLabel.Text = "Clé valide! Chargement du script..."
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            
+            -- Sauvegarder la clé pour la prochaine utilisation
+            local savedKeyValue = Instance.new("StringValue")
+            savedKeyValue.Name = "SavedKey"
+            savedKeyValue.Value = inputKey
+            savedKeyValue.Parent = game:GetService("Players").LocalPlayer
+            
+            -- Fermer l'interface et charger le script
+            wait(1)
+            KeyUI:Destroy()
+            loadScript()
+        else
+            StatusLabel.Text = "Clé invalide! Essayez 'zekyu'"
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+            
+            -- Animation de secousse
+            local originalPosition = MainFrame.Position
+            for i = 1, 3 do
+                MainFrame.Position = originalPosition + UDim2.new(0, 10, 0, 0)
+                wait(0.05)
+                MainFrame.Position = originalPosition - UDim2.new(0, 10, 0, 0)
+                wait(0.05)
+            end
+            MainFrame.Position = originalPosition
+        end
+    end
+    
+    -- Connecter le bouton et l'événement Enter
+    SubmitButton.MouseButton1Click:Connect(checkKey)
+    KeyInput.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            checkKey()
+        end
+    end)
+    
+    return KeyUI
+end
+
+-- Gérer le système de clé
+if keySystem then
+    -- Créer l'interface du système de clé
+    local keyInterface = createSimpleKeyUI()
+    
+    -- Si une clé a été précédemment enregistrée et valide, charger directement le script
+    local savedKey = game:GetService("Players").LocalPlayer:FindFirstChild("SavedKey")
+    if savedKey and savedKey.Value == correctKey then
+        loadScript()
+    else
+        -- L'interface de clé est déjà créée, attendre que l'utilisateur entre la clé
+        print("Entrez la clé ou utilisez 'zekyu'")
+    end
+else
+    -- Si le système de clé est désactivé, charger directement le script
+    loadScript()
+end
                     
     
