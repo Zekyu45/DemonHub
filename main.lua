@@ -49,7 +49,6 @@ function loadScript()
 
     -- Structure des mondes et leurs limites de zones
     local worlds = {
-        -- Position du monde Spawn corrigée, les autres valeurs sont conservées
         {name = "Spawn World", minZone = 1, maxZone = 99, basePosition = Vector3.new(121.71, 16.54, -204.95), offsetX = 5, offsetZ = 3},
         {name = "Tech World", minZone = 100, maxZone = 199, basePosition = Vector3.new(4325, 130, 1850), offsetX = 3, offsetZ = 0},
         {name = "Void World", minZone = 200, maxZone = 239, basePosition = Vector3.new(3678, 130, 1340), offsetX = 0, offsetZ = -3}
@@ -171,369 +170,108 @@ function loadScript()
         
         return currentWorld.name .. " Zone " .. zoneInWorld, zonePosition
     end
-
-    -- Fonction pour trouver le breakable le plus proche
-    local function findNearestBreakable()
-        local character = LocalPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
-        
-        local hrp = character.HumanoidRootPart
-        local nearest = nil
-        local minDistance = math.huge
-        local maxSearchRadius = 60
-        
-        -- Recherche dans les conteneurs spécifiques
-        for _, containerName in ipairs({"Breakables", "Breakable", "Zone"}) do
-            local container = workspace:FindFirstChild(containerName)
-            if container then
-                for _, v in pairs(container:GetChildren()) do
-                    if (v.Name == "Breakable" or v:FindFirstChild("Breakable")) and v:IsA("Model") then
-                        local breakableObj = v.Name == "Breakable" and v or v:FindFirstChild("Breakable")
-                        if breakableObj and breakableObj:FindFirstChild("Health") and breakableObj.Health.Value > 0 then
-                            local primaryPart = v:FindFirstChild("PrimaryPart") or v:FindFirstChildWhichIsA("Part")
-                            if primaryPart then
-                                local distance = (hrp.Position - primaryPart.Position).magnitude
-                                if distance < minDistance and distance < maxSearchRadius then
-                                    minDistance = distance
-                                    nearest = breakableObj
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end
-        
-        return nearest
-    end
--- Fonction de téléportation sécurisée
-    local function safelyTeleportTo(position, teleportHeight)
-        local character = LocalPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
-        
-        -- Ajout d'un offset aléatoire pour éviter les obstacles
-        local randomOffset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
-        local safePosition = Vector3.new(position.X, position.Y + (teleportHeight or 20), position.Z) + randomOffset
-        
-        -- Téléportation
-        character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
-        wait(0.5)
-        
-        -- Vérification des obstacles par raycast
-        local rayParams = RaycastParams.new()
-        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
-        rayParams.FilterDescendantsInstances = {character}
-        
-        local rayResult = workspace:Raycast(safePosition, Vector3.new(0, -50, 0), rayParams)
-        if not rayResult then
-            -- Si pas de sol détecté, essayer une autre position
-            return safelyTeleportTo(position + Vector3.new(math.random(-10, 10), 0, math.random(-10, 10)), teleportHeight)
-        end
-        
-        return true
-    end
-
-    -- Fonction pour collecter les objets à proximité
-    local function collectNearbyItems(radius)
-        local character = LocalPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-        
-        local hrp = character.HumanoidRootPart
-        local radius = radius or _G.farmRadius
-        
-        local collectibles = {
-            {containerName = "Orbs", networkEvent = "CollectOrb"},
-            {containerName = "Lootbags", networkEvent = "CollectLootbag"},
-            {containerName = "Drops", networkEvent = "Collect"},
-            {containerName = "Coins", networkEvent = "Collect"}
-        }
-        
-        for _, collectible in ipairs(collectibles) do
-            local container = workspace:FindFirstChild(collectible.containerName)
-            if container then
-                for _, item in pairs(container:GetChildren()) do
-                    if (item.Position - hrp.Position).Magnitude <= radius then
-                        pcall(function()
-                            firetouchinterest(hrp, item, 0)
-                            wait()
-                            firetouchinterest(hrp, item, 1)
-                            ReplicatedStorage.Network:FireServer(collectible.networkEvent, item)
-                        end)
-                    end
-                end
-            end
-        end
-    end
-
-    -- Fonction Auto Collect
-    local function performAutoCollect()
-        while _G.autoCollect do
-            if not game:GetService("Players").LocalPlayer then
-                _G.autoCollect = false
-                break
-            end
-            
-            collectNearbyItems(_G.farmRadius)
-            wait(0.1)
-        end
-    end
-
-    -- Auto Tap
-    MainSection:NewToggle("Auto Tap", "Tape automatiquement sur les breakables", function(state)
-        _G.autoTap = state
-        
-        if state then
-            spawn(function()
-                while _G.autoTap do
-                    if not game:GetService("Players").LocalPlayer then break end
-                    
-                    local nearest = findNearestBreakable()
-                    if nearest then
-                        pcall(function()
-                            local character = LocalPlayer.Character
-                            if character and character:FindFirstChild("HumanoidRootPart") then
-                                local hrp = character.HumanoidRootPart
-                                local breakablePart = nearest:FindFirstChild("PrimaryPart") or nearest:FindFirstChildWhichIsA("Part")
-                                
-                                if breakablePart and (hrp.Position - breakablePart.Position).magnitude > 15 then
-                                    hrp.CFrame = CFrame.new(breakablePart.Position + Vector3.new(0, 3, 0))
-                                end
-                                
-                                ReplicatedStorage.Network:FireServer("PetAttack", nearest)
-                                ReplicatedStorage.Network:FireServer("Click", nearest)
-                            end
-                        end)
-                    else
-                        pcall(function() ReplicatedStorage.Network:FireServer("Click") end)
-                    end
-                    
-                    if _G.autoTap then collectNearbyItems(25) end
-                    wait(0.05)
-                end
-            end)
-        end
-    end)
-
-    -- Auto Collect
-    MainSection:NewToggle("Auto Collect", "Collecte automatiquement tous les objets", function(state)
-        _G.autoCollect = state
-        if state then spawn(performAutoCollect) end
-    end)
-
-    -- Auto Farm
-    MainSection:NewToggle("Auto Farm", "Farm automatiquement dans la zone débloquée", function(state)
+    -- Section pour la fonction d'auto-farming
+    local AutoFarmTab = Window:NewTab("AutoFarm")
+    local AutoFarmSection = AutoFarmTab:NewSection("Auto Farm Settings")
+    
+    -- Toggle pour activer l'auto-farming
+    AutoFarmSection:NewToggle("Activer l'Auto-Farming", "Lance l'auto-farming", function(state)
         _G.autoFarm = state
-        
         if state then
-            spawn(function()
-                while _G.autoFarm do
-                    if not game:GetService("Players").LocalPlayer then break end
-                    
-                    -- Obtenir la meilleure zone débloquée dans le monde actuel
-                    local zoneName, zonePosition = getBestUnlockedZoneInCurrentWorld()
-                    safelyTeleportTo(zonePosition, 20)
-                    
-                    StarterGui:SetCore("SendNotification", {
-                        Title = "Auto Farm",
-                        Text = "Farming dans " .. zoneName,
-                        Duration = 3
-                    })
-                    
-                    local farmTime = 0
-                    local consecutiveNoBreakables = 0
-                    
-                    while _G.autoFarm and farmTime < 30 and consecutiveNoBreakables < 3 do
-                        local nearest = findNearestBreakable()
-                        
-                        if nearest then
-                            consecutiveNoBreakables = 0
-                            local character = LocalPlayer.Character
-                            if character and character:FindFirstChild("HumanoidRootPart") then
-                                local breakablePart = nearest:FindFirstChild("PrimaryPart") or nearest:FindFirstChildWhichIsA("Part")
-                                
-                                if breakablePart then
-                                    -- Téléportation avec un petit offset aléatoire pour éviter les obstacles
-                                    local randomOffset = Vector3.new(math.random(-2, 2), 0, math.random(-2, 2))
-                                    character.HumanoidRootPart.CFrame = breakablePart.CFrame * CFrame.new(randomOffset.X, 3, randomOffset.Z)
-                                    
-                                    ReplicatedStorage.Network:FireServer("PetAttack", nearest)
-                                    ReplicatedStorage.Network:FireServer("Click", nearest)
-                                    
-                                    local attackStart = tick()
-                                    while nearest and nearest:FindFirstChild("Health") and 
-                                          nearest.Health.Value > 0 and tick() - attackStart < 5 and _G.autoFarm do
-                                        ReplicatedStorage.Network:FireServer("Click", nearest)
-                                        collectNearbyItems(_G.farmRadius)
-                                        wait(0.1)
-                                    end
-                                    
-                                    collectNearbyItems(_G.farmRadius * 1.5)
-                                end
-                            end
-                        else
-                            consecutiveNoBreakables = consecutiveNoBreakables + 1
-                            local character = LocalPlayer.Character
-                            if character and character:FindFirstChild("HumanoidRootPart") then
-                                -- Explorer la zone avec un rayon plus grand pour trouver des breakables
-                                -- Utilisons un pattern en spirale pour mieux couvrir la zone
-                                local angle = farmTime * math.pi / 6
-                                local radius = 10 + (farmTime % 4) * 5
-                                local exploreOffset = Vector3.new(
-                                    math.cos(angle) * radius,
-                                    0,
-                                    math.sin(angle) * radius
-                                )
-                                character.HumanoidRootPart.CFrame = CFrame.new(zonePosition + exploreOffset)
-                            end
-                            wait(0.3)
-                        end
-                        
-                        farmTime = farmTime + 1
-                        wait(0.1)
-                    end
-                    
-                    wait(0.5)
+            -- Lancer l'auto farming
+            while _G.autoFarm do
+                local bestZoneName, bestZonePosition = getBestUnlockedZoneInCurrentWorld()
+                print("En route vers " .. bestZoneName)
+                -- Déplacer le joueur vers la zone
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local rootPart = character.HumanoidRootPart
+                    rootPart.CFrame = CFrame.new(bestZonePosition)
                 end
-            end)
+                wait(5) -- Attendre avant de redemander la zone la plus haute
+            end
         end
     end)
 
-    -- Slider pour le rayon de farm
-    MainSection:NewSlider("Rayon de Farm", "Définit la distance de collecte", 50, 5, function(value)
-        _G.farmRadius = value
+    -- Paramétrage de la collecte automatique
+    local CollectTab = Window:NewTab("AutoCollect")
+    local CollectSection = CollectTab:NewSection("Collecte automatique")
+    
+    -- Toggle pour activer la collecte automatique
+    CollectSection:NewToggle("Collecte automatique", "Activer ou désactiver la collecte des objets", function(state)
+        _G.autoCollect = state
+        if state then
+            -- Activer la collecte automatique
+            while _G.autoCollect do
+                -- Simulation de collecte des objets dans le rayon spécifié
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local rootPart = character.HumanoidRootPart
+                    -- Rechercher les objets collectables autour du joueur dans un rayon
+                    for _, item in pairs(workspace:GetChildren()) do
+                        if item:IsA("Part") and item.Name == "CollectableItem" then
+                            local dist = (item.Position - rootPart.Position).Magnitude
+                            if dist <= _G.farmRadius then
+                                -- Simuler l'interaction avec l'objet
+                                firetouchinterest(rootPart, item, 0)
+                                firetouchinterest(rootPart, item, 1)
+                            end
+                        end
+                    end
+                end
+                wait(1)
+            end
+        end
+    end)
+    
+    -- Réglage de la distance de collecte
+    CollectSection:NewSlider("Rayon de collecte", "Définir la distance de collecte autour du joueur", 50, 0, _G.farmRadius, function(val)
+        _G.farmRadius = val
     end)
 
-    -- Tab Téléportation
-    local TeleportTab = Window:NewTab("Téléportation")
-    local TeleportSection = TeleportTab:NewSection("Zones")
+    -- Tab des paramètres
+    local SettingsTab = Window:NewTab("Paramètres")
+    local SettingsSection = SettingsTab:NewSection("Options du script")
 
-    -- Téléportation à la meilleure zone
-    TeleportSection:NewButton("Meilleure zone", "Téléporte à la meilleure zone débloquée", function()
-        local zoneName, zonePosition = getBestUnlockedZoneInCurrentWorld()
-        safelyTeleportTo(zonePosition, 15)
-        
-        StarterGui:SetCore("SendNotification", {
-            Title = "Téléportation",
-            Text = "Téléporté à: " .. zoneName,
-            Duration = 3
-        })
+    -- Paramètre pour choisir la clé d'authentification
+    SettingsSection:NewTextBox("Clé d'authentification", "Entrez votre clé pour activer le script", true, function(val)
+        if val == correctKey then
+            keySystem = true
+            StarterGui:SetCore("SendNotification", {Title = "Succès", Text = "Clé d'authentification correcte !", Duration = 5})
+        else
+            keySystem = false
+            StarterGui:SetCore("SendNotification", {Title = "Erreur", Text = "Clé d'authentification incorrecte.", Duration = 5})
+        end
     end)
-
-    -- Téléportation aux mondes
-    for i, world in ipairs(worlds) do
-        TeleportSection:NewButton(world.name, "Téléporte au " .. world.name, function()
-            safelyTeleportTo(world.basePosition, 15)
-            
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Téléporté à: " .. world.name,
-                Duration = 3
-            })
+    
+    -- Fonction de déconnexion du script
+    SettingsSection:NewButton("Déconnexion", "Déconnecte du script", function()
+        LocalPlayer:Kick("Déconnecté du script PS99 Mobile Pro.")
+    end)
+    
+    -- Fonction Anti-AFK déjà incluse
+    local function antiAfk()
+        local VirtualUser = game:GetService("VirtualUser")
+        LocalPlayer.Idled:Connect(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton2(Vector2.new())
+            StarterGui:SetCore("SendNotification", {Title = "Anti-AFK", Text = "Anti-AFK activé", Duration = 3})
         end)
     end
+    antiAfk()
 
-    -- Afficher message de bienvenue
-    StarterGui:SetCore("SendNotification", {
-        Title = "PS99 Mobile Pro",
-        Text = "Script chargé avec succès! Version 3.5",
-        Duration = 5
-    })
-
-    return true
-end
-
--- Fonction pour l'interface de saisie de clé
-function createKeyUI()
-    local KeyUI = Instance.new("ScreenGui")
-    local MainFrame = Instance.new("Frame")
-    local Title = Instance.new("TextLabel")
-    local KeyInput = Instance.new("TextBox")
-    local SubmitButton = Instance.new("TextButton")
-    local StatusLabel = Instance.new("TextLabel")
-    
-    KeyUI.Name = "KeyUI"
-    KeyUI.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
-    KeyUI.ResetOnSpawn = false
-    
-    MainFrame.Name = "MainFrame"
-    MainFrame.Parent = KeyUI
-    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-    MainFrame.BorderSizePixel = 2
-    MainFrame.BorderColor3 = Color3.fromRGB(0, 150, 255)
-    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
-    MainFrame.Size = UDim2.new(0, 300, 0, 200)
-    MainFrame.Active = true
-    MainFrame.Draggable = true
-    
-    Title.Name = "Title"
-    Title.Parent = MainFrame
-    Title.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-    Title.BorderSizePixel = 0
-    Title.Size = UDim2.new(1, 0, 0, 30)
-    Title.Font = Enum.Font.GothamBold
-    Title.Text = "PS99 Mobile Pro - Authentification"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 18.000
-    
-    KeyInput.Name = "KeyInput"
-    KeyInput.Parent = MainFrame
-    KeyInput.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-    KeyInput.BorderSizePixel = 1
-    KeyInput.BorderColor3 = Color3.fromRGB(0, 120, 215)
-    KeyInput.Position = UDim2.new(0.1, 0, 0.3, 0)
-    KeyInput.Size = UDim2.new(0.8, 0, 0, 40)
-    KeyInput.Font = Enum.Font.Gotham
-    KeyInput.PlaceholderText = "Entrez votre clé ici..."
-    KeyInput.Text = ""
-    KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-    KeyInput.TextSize = 16.000
-    
-    SubmitButton.Name = "SubmitButton"
-    SubmitButton.Parent = MainFrame
-    SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-    SubmitButton.BorderSizePixel = 0
-    SubmitButton.Position = UDim2.new(0.25, 0, 0.6, 0)
-    SubmitButton.Size = UDim2.new(0.5, 0, 0, 35)
-    SubmitButton.Font = Enum.Font.GothamBold
-    SubmitButton.Text = "Valider"
-    SubmitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SubmitButton.TextSize = 16.000
-    
-    StatusLabel.Name = "StatusLabel"
-    StatusLabel.Parent = MainFrame
-    StatusLabel.BackgroundTransparency = 1
-    StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
-    StatusLabel.Size = UDim2.new(1, 0, 0, 30)
-    StatusLabel.Font = Enum.Font.Gotham
-    StatusLabel.Text = "Entrez la clé: zekyu"
-    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    StatusLabel.TextSize = 14.000
-    
-    -- Fonction de vérification de clé
-    local function checkKey()
-        if KeyInput.Text == correctKey then
-            StatusLabel.Text = "Clé valide! Chargement..."
-            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-            wait(1)
-            KeyUI:Destroy()
-            loadScript()
-        else
-            StatusLabel.Text = "Clé invalide! Essayez 'zekyu'"
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-        end
+    -- Fonction de mise à jour des paramètres
+    local function updateSettings()
+        -- Mettre à jour les paramètres dans le script selon les préférences
+        -- Ex: récupérer les dernières zones débloquées, positions, etc.
     end
-    
-    SubmitButton.MouseButton1Click:Connect(checkKey)
-    KeyInput.FocusLost:Connect(function(enterPressed)
-        if enterPressed then checkKey() end
-    end)
-    
-    return KeyUI
+
+    -- Mise à jour des paramètres régulièrement
+    while true do
+        updateSettings()
+        wait(60)  -- Attendre 60 secondes avant de mettre à jour
+    end
 end
 
--- Démarrage avec système de clé
-if keySystem then
-    createKeyUI()
-else
-    loadScript()
-end
+-- Lancer le script
+loadScript()
