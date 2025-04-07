@@ -1,5 +1,5 @@
 -- Script PS99 optimisé pour Delta avec UI amélioré et draggable
--- Version 3.6 avec coordonnées corrigées
+-- Version 4.0 avec coordonnées corrigées et téléportation améliorée
 
 -- Système de clé d'authentification
 local keySystem = true
@@ -26,6 +26,7 @@ function loadScript()
     _G.autoFarm = false
     _G.farmRadius = 20
     _G.teleportInProgress = false
+    _G.teleportHeight = 50  -- Hauteur de téléportation augmentée
     
     -- Services
     local Players = game:GetService("Players")
@@ -48,11 +49,11 @@ function loadScript()
     local MainTab = Window:NewTab("Principal")
     local MainSection = MainTab:NewSection("Farming")
 
-    -- Structure des mondes et leurs limites de zones avec les coordonnées corrigées
+    -- Structure des mondes et leurs limites de zones avec les coordonnées ajustées
     local worlds = {
-        {name = "Spawn World", minZone = 1, maxZone = 99, basePosition = Vector3.new(121.71, 18.54, -204.95), offsetX = 5, offsetZ = 3},
-        {name = "Tech World", minZone = 100, maxZone = 199, basePosition = Vector3.new(-9987.57, 18.5, -358.72), offsetX = 3, offsetZ = 0},
-        {name = "Void World", minZone = 200, maxZone = 239, basePosition = Vector3.new(-10266.83, 6.17, -7358.04), offsetX = 0, offsetZ = -3}
+        {name = "Spawn World", minZone = 1, maxZone = 99, basePosition = Vector3.new(121.71, 25.54, -204.95), offsetX = 5, offsetZ = 3},
+        {name = "Tech World", minZone = 100, maxZone = 199, basePosition = Vector3.new(-9987.57, 25.5, -358.72), offsetX = 3, offsetZ = 0},
+        {name = "Void World", minZone = 200, maxZone = 239, basePosition = Vector3.new(-10266.83, 15.17, -7358.04), offsetX = 0, offsetZ = -3}
     }
 
     -- Fonction pour déterminer le monde actuel
@@ -64,7 +65,7 @@ function loadScript()
         
         local currentPosition = character.HumanoidRootPart.Position
         
-        -- Logique de détection basée sur les coordonnées corrigées
+        -- Logique de détection basée sur les coordonnées ajustées
         if currentPosition.Z < 0 and currentPosition.X > -1000 and currentPosition.X < 1000 then
             return worlds[1] -- Spawn World
         elseif currentPosition.X < -9000 and currentPosition.Z > -1000 then
@@ -171,7 +172,7 @@ function loadScript()
         
         -- Correction spéciale pour la best zone
         if currentWorld.name == "Void World" and zoneInWorld == currentWorld.maxZone then
-            zonePosition = Vector3.new(-61.88, 159.54, 6424.32)
+            zonePosition = Vector3.new(-61.88, 165.54, 6424.32)  -- Hauteur augmentée
         end
         
         return currentWorld.name .. " Zone " .. zoneInWorld, zonePosition
@@ -211,8 +212,9 @@ function loadScript()
         
         return nearest
     end
--- Fonction de téléportation sécurisée avec écran de chargement
-    local function safelyTeleportTo(position, teleportHeight)
+
+    -- Fonction améliorée de téléportation sécurisée avec écran de chargement et stabilisation
+    local function safelyTeleportTo(position, customHeight)
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
         
@@ -260,10 +262,6 @@ function loadScript()
         loadingFill.BorderSizePixel = 0
         loadingFill.Size = UDim2.new(0, 0, 1, 0)
         
-        -- Ajout d'un offset aléatoire pour éviter les obstacles
-        local randomOffset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
-        local safePosition = Vector3.new(position.X, position.Y + (teleportHeight or 20), position.Z) + randomOffset
-        
         -- Animation de la barre de chargement
         spawn(function()
             for i = 0, 10 do
@@ -272,49 +270,77 @@ function loadScript()
             end
         end)
         
-        -- Téléportation
+        -- Hauteur de téléportation augmentée
+        local teleportHeight = customHeight or _G.teleportHeight
+        
+        -- Ajout d'un offset aléatoire pour éviter les obstacles
+        local randomOffset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
+        local safePosition = Vector3.new(position.X, position.Y + teleportHeight, position.Z) + randomOffset
+        
+        -- Téléportation avec ancrage temporaire pour stabilisation
         character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+        character.HumanoidRootPart.Anchored = true
         
         -- Attendre que le sol charge
-        local waitTime = 3
         loadingText.Text = "Chargement du sol..."
-        wait(waitTime)
-        
-        -- Vérification des obstacles par raycast
+        wait(1.5)
+-- Recherche du sol par raycast en descendant progressivement
         local rayParams = RaycastParams.new()
         rayParams.FilterType = Enum.RaycastFilterType.Blacklist
         rayParams.FilterDescendantsInstances = {character}
         
-        local rayResult = workspace:Raycast(safePosition, Vector3.new(0, -50, 0), rayParams)
-        if not rayResult then
-            -- Si pas de sol détecté, essayer de descendre progressivement
+        -- Tentative de détection du sol avec un rayon plus long
+        local rayResult = workspace:Raycast(safePosition, Vector3.new(0, -100, 0), rayParams)
+        
+        if rayResult then
+            -- Sol trouvé, se téléporter juste au-dessus
+            loadingText.Text = "Sol trouvé!"
+            local floorPosition = rayResult.Position + Vector3.new(0, 5, 0)  -- 5 unités au-dessus du sol
+            character.HumanoidRootPart.CFrame = CFrame.new(floorPosition)
+            wait(0.5)
+        else
+            -- Descente progressive pour trouver le sol
             loadingText.Text = "Recherche du sol..."
-            local found = false
-            for y = 0, -100, -5 do
-                local testPos = Vector3.new(safePosition.X, safePosition.Y + y, safePosition.Z)
-                character.HumanoidRootPart.CFrame = CFrame.new(testPos)
+            local foundGround = false
+            
+            -- Descendre par paliers de 10 unités
+            for height = 0, -200, -10 do
+                local testPosition = Vector3.new(safePosition.X, safePosition.Y + height, safePosition.Z)
+                character.HumanoidRootPart.CFrame = CFrame.new(testPosition)
                 wait(0.2)
                 
-                local rayResult = workspace:Raycast(testPos, Vector3.new(0, -10, 0), rayParams)
+                -- Vérifier s'il y a un sol en dessous
+                local rayResult = workspace:Raycast(testPosition, Vector3.new(0, -20, 0), rayParams)
                 if rayResult then
                     -- Sol trouvé
-                    character.HumanoidRootPart.CFrame = CFrame.new(rayResult.Position + Vector3.new(0, 3, 0))
-                    found = true
+                    local floorPosition = rayResult.Position + Vector3.new(0, 5, 0)
+                    character.HumanoidRootPart.CFrame = CFrame.new(floorPosition)
+                    foundGround = true
+                    loadingText.Text = "Sol trouvé à " .. math.floor(floorPosition.Y) .. " unités!"
                     break
                 end
             end
             
-            if not found then
-                -- Si toujours pas de sol, revenir à la position d'origine
-                loadingText.Text = "Sol non trouvé, retour..."
-                local playerPos = LocalPlayer.Character.HumanoidRootPart.Position
-                character.HumanoidRootPart.CFrame = CFrame.new(playerPos.X, 500, playerPos.Z) -- Altitude élevée
-                wait(1)
-                character.HumanoidRootPart.Anchored = true
-                wait(0.5)
-                character.HumanoidRootPart.Anchored = false
+            -- Si aucun sol n'est trouvé, utiliser une position sécurisée par défaut
+            if not foundGround then
+                loadingText.Text = "Sol non trouvé, utilisation de position par défaut..."
+                local defaultY = position.Y + 10  -- Position Y par défaut
+                character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(position.X, defaultY, position.Z))
             end
         end
+        
+        -- Stabiliser en restant ancré pendant un moment
+        wait(1)
+        
+        -- Désancrer progressivement pour éviter les chutes brutales
+        loadingText.Text = "Stabilisation..."
+        
+        -- Appliquer une vélocité vers le haut pour contrer la gravité lors du désancrage
+        character.HumanoidRootPart.Velocity = Vector3.new(0, 5, 0)
+        character.HumanoidRootPart.Anchored = false
+        
+        -- Vérifier si le personnage est bien positionné après le désancrage
+        wait(0.5)
         
         -- Retirer l'écran de chargement
         loadingScreen:Destroy()
@@ -385,7 +411,8 @@ function loadScript()
                                 local breakablePart = nearest:FindFirstChild("PrimaryPart") or nearest:FindFirstChildWhichIsA("Part")
                                 
                                 if breakablePart and (hrp.Position - breakablePart.Position).magnitude > 15 then
-                                    hrp.CFrame = CFrame.new(breakablePart.Position + Vector3.new(0, 3, 0))
+                                    -- Téléportation améliorée vers le breakable
+                                    hrp.CFrame = CFrame.new(breakablePart.Position + Vector3.new(0, 5, 0))
                                 end
                                 
                                 ReplicatedStorage.Network:FireServer("PetAttack", nearest)
@@ -420,7 +447,7 @@ function loadScript()
                     
                     -- Obtenir la meilleure zone débloquée dans le monde actuel
                     local zoneName, zonePosition = getBestUnlockedZoneInCurrentWorld()
-                    local teleportSuccess = safelyTeleportTo(zonePosition, 20)
+                    local teleportSuccess = safelyTeleportTo(zonePosition, 60)  -- Hauteur augmentée pour éviter les obstacles
                     
                     if teleportSuccess then
                         StarterGui:SetCore("SendNotification", {
@@ -442,9 +469,14 @@ function loadScript()
                                     local breakablePart = nearest:FindFirstChild("PrimaryPart") or nearest:FindFirstChildWhichIsA("Part")
                                     
                                     if breakablePart then
-                                        -- Téléportation avec un petit offset aléatoire pour éviter les obstacles
+                                        -- Téléportation avec un petit offset aléatoire et hauteur ajustée
                                         local randomOffset = Vector3.new(math.random(-2, 2), 0, math.random(-2, 2))
-                                        character.HumanoidRootPart.CFrame = breakablePart.CFrame * CFrame.new(randomOffset.X, 3, randomOffset.Z)
+                                        character.HumanoidRootPart.CFrame = breakablePart.CFrame * CFrame.new(randomOffset.X, 5, randomOffset.Z)
+                                        
+                                        -- Utiliser ancrage temporaire pour stabiliser
+                                        character.HumanoidRootPart.Anchored = true
+                                        wait(0.1)
+                                        character.HumanoidRootPart.Anchored = false
                                         
                                         ReplicatedStorage.Network:FireServer("PetAttack", nearest)
                                         ReplicatedStorage.Network:FireServer("Click", nearest)
@@ -472,7 +504,12 @@ function loadScript()
                                         0,
                                         math.sin(angle) * radius
                                     )
+                                    
+                                    -- Téléportation avec ancrage temporaire pour stabiliser
                                     character.HumanoidRootPart.CFrame = CFrame.new(zonePosition + exploreOffset)
+                                    character.HumanoidRootPart.Anchored = true
+                                    wait(0.1)
+                                    character.HumanoidRootPart.Anchored = false
                                 end
                                 wait(0.3)
                             end
@@ -494,6 +531,11 @@ function loadScript()
     MainSection:NewSlider("Rayon de Farm", "Définit la distance de collecte", 50, 5, function(value)
         _G.farmRadius = value
     end)
+    
+    -- Slider pour la hauteur de téléportation
+    MainSection:NewSlider("Hauteur TP", "Définit la hauteur de téléportation", 100, 20, function(value)
+        _G.teleportHeight = value
+    end)
 
     -- Tab Téléportation
     local TeleportTab = Window:NewTab("Téléportation")
@@ -502,7 +544,7 @@ function loadScript()
     -- Téléportation à la meilleure zone
     TeleportSection:NewButton("Meilleure zone", "Téléporte à la meilleure zone débloquée", function()
         local zoneName, zonePosition = getBestUnlockedZoneInCurrentWorld()
-        local teleportSuccess = safelyTeleportTo(zonePosition, 15)
+        local teleportSuccess = safelyTeleportTo(zonePosition, _G.teleportHeight)
         
         if teleportSuccess then
             StarterGui:SetCore("SendNotification", {
@@ -516,7 +558,7 @@ function loadScript()
     -- Téléportation aux mondes
     for i, world in ipairs(worlds) do
         TeleportSection:NewButton(world.name, "Téléporte au " .. world.name, function()
-            local teleportSuccess = safelyTeleportTo(world.basePosition, 15)
+            local teleportSuccess = safelyTeleportTo(world.basePosition, _G.teleportHeight)
             
             if teleportSuccess then
                 StarterGui:SetCore("SendNotification", {
@@ -528,10 +570,57 @@ function loadScript()
         end)
     end
 
+    -- Tab Options
+    local OptionsTab = Window:NewTab("Options")
+    local OptionsSection = OptionsTab:NewSection("Paramètres")
+    
+    -- Bouton pour stabiliser le personnage
+    OptionsSection:NewButton("Stabiliser position", "Ancre temporairement pour stabiliser", function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            StarterGui:SetCore("SendNotification", {
+                Title = "Stabilisation",
+                Text = "Stabilisation en cours...",
+                Duration = 2
+            })
+            
+            character.HumanoidRootPart.Anchored = true
+            wait(1.5)
+            character.HumanoidRootPart.Velocity = Vector3.new(0, 5, 0)
+            character.HumanoidRootPart.Anchored = false
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Stabilisation",
+                Text = "Position stabilisée!",
+                Duration = 2
+            })
+        end
+    end)
+    
+    -- Bouton pour remonter en cas de chute sous le sol
+    OptionsSection:NewButton("Remonter (si sous le sol)", "Remonte en cas de chute sous le sol", function()
+        local character = LocalPlayer.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then
+            local currentPos = character.HumanoidRootPart.Position
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Remontée",
+                Text = "Tentative de remontée...",
+                Duration = 2
+            })
+            
+            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(currentPos.X, currentPos.Y + 50, currentPos.Z))
+            character.HumanoidRootPart.Anchored = true
+            wait(1)
+            character.HumanoidRootPart.Velocity = Vector3.new(0, 10, 0)
+            character.HumanoidRootPart.Anchored = false
+        end
+    end)
+
     -- Afficher message de bienvenue
     StarterGui:SetCore("SendNotification", {
         Title = "PS99 Mobile Pro",
-        Text = "Script chargé avec succès! Version 3.6",
+        Text = "Script chargé avec succès! Version 4.0",
         Duration = 5
     })
 
@@ -625,6 +714,149 @@ function createKeyUI()
     end)
     
     return KeyUI
+end
+
+-- Fonction pour créer un tableau de bord avec les informations de debug
+function createDebugDashboard()
+    local DebugUI = Instance.new("ScreenGui")
+    local InfoFrame = Instance.new("Frame")
+    local TitleLabel = Instance.new("TextLabel")
+    local InfoList = Instance.new("Frame")
+    local WorldInfo = Instance.new("TextLabel")
+    local ZoneInfo = Instance.new("TextLabel")
+    local PositionInfo = Instance.new("TextLabel")
+    local StatusInfo = Instance.new("TextLabel")
+    local CloseButton = Instance.new("TextButton")
+    
+    DebugUI.Name = "DebugDashboard"
+    DebugUI.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    DebugUI.ResetOnSpawn = false
+    
+    InfoFrame.Name = "InfoFrame"
+    InfoFrame.Parent = DebugUI
+    InfoFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
+    InfoFrame.BorderSizePixel = 2
+    InfoFrame.BorderColor3 = Color3.fromRGB(0, 150, 255)
+    InfoFrame.Position = UDim2.new(0, 10, 0.5, -100)
+    InfoFrame.Size = UDim2.new(0, 250, 0, 200)
+    InfoFrame.Active = true
+    InfoFrame.Draggable = true
+    
+    TitleLabel.Name = "TitleLabel"
+    TitleLabel.Parent = InfoFrame
+    TitleLabel.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
+    TitleLabel.BorderSizePixel = 0
+    TitleLabel.Size = UDim2.new(1, 0, 0, 30)
+    TitleLabel.Font = Enum.Font.GothamBold
+    TitleLabel.Text = "Informations de Debug"
+    TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    TitleLabel.TextSize = 16.000
+    
+    InfoList.Name = "InfoList"
+    InfoList.Parent = InfoFrame
+    InfoList.BackgroundTransparency = 1
+    InfoList.Position = UDim2.new(0, 0, 0, 30)
+    InfoList.Size = UDim2.new(1, 0, 1, -30)
+    
+    WorldInfo.Name = "WorldInfo"
+    WorldInfo.Parent = InfoList
+    WorldInfo.BackgroundTransparency = 1
+    WorldInfo.Position = UDim2.new(0, 10, 0, 10)
+    WorldInfo.Size = UDim2.new(1, -20, 0, 25)
+    WorldInfo.Font = Enum.Font.Gotham
+    WorldInfo.Text = "Monde: ---"
+    WorldInfo.TextColor3 = Color3.fromRGB(255, 255, 255)
+    WorldInfo.TextSize = 14.000
+    WorldInfo.TextXAlignment = Enum.TextXAlignment.Left
+    
+    ZoneInfo.Name = "ZoneInfo"
+    ZoneInfo.Parent = InfoList
+    ZoneInfo.BackgroundTransparency = 1
+    ZoneInfo.Position = UDim2.new(0, 10, 0, 40)
+    ZoneInfo.Size = UDim2.new(1, -20, 0, 25)
+    ZoneInfo.Font = Enum.Font.Gotham
+    ZoneInfo.Text = "Zone: ---"
+    ZoneInfo.TextColor3 = Color3.fromRGB(255, 255, 255)
+    ZoneInfo.TextSize = 14.000
+    ZoneInfo.TextXAlignment = Enum.TextXAlignment.Left
+    
+    PositionInfo.Name = "PositionInfo"
+    PositionInfo.Parent = InfoList
+    PositionInfo.BackgroundTransparency = 1
+    PositionInfo.Position = UDim2.new(0, 10, 0, 70)
+    PositionInfo.Size = UDim2.new(1, -20, 0, 25)
+    PositionInfo.Font = Enum.Font.Gotham
+    PositionInfo.Text = "Position: ---"
+    PositionInfo.TextColor3 = Color3.fromRGB(255, 255, 255)
+    PositionInfo.TextSize = 14.000
+    PositionInfo.TextXAlignment = Enum.TextXAlignment.Left
+    
+    StatusInfo.Name = "StatusInfo"
+    StatusInfo.Parent = InfoList
+    StatusInfo.BackgroundTransparency = 1
+    StatusInfo.Position = UDim2.new(0, 10, 0, 100)
+    StatusInfo.Size = UDim2.new(1, -20, 0, 25)
+    StatusInfo.Font = Enum.Font.Gotham
+    StatusInfo.Text = "Statut: OK"
+    StatusInfo.TextColor3 = Color3.fromRGB(0, 255, 0)
+    StatusInfo.TextSize = 14.000
+    StatusInfo.TextXAlignment = Enum.TextXAlignment.Left
+    
+    CloseButton.Name = "CloseButton"
+    CloseButton.Parent = InfoFrame
+    CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+    CloseButton.BorderSizePixel = 0
+    CloseButton.Position = UDim2.new(1, -25, 0, 5)
+    CloseButton.Size = UDim2.new(0, 20, 0, 20)
+    CloseButton.Font = Enum.Font.GothamBold
+    CloseButton.Text = "X"
+    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    CloseButton.TextSize = 14.000
+    
+    CloseButton.MouseButton1Click:Connect(function()
+        DebugUI:Destroy()
+    end)
+    
+    -- Mettre à jour les informations périodiquement
+    spawn(function()
+        while DebugUI.Parent ~= nil do
+            local player = game:GetService("Players").LocalPlayer
+            if player and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+                local position = player.Character.HumanoidRootPart.Position
+                local currentWorld = ""
+                local zone = ""
+                
+                -- Déterminer le monde actuel
+                if position.Z < 0 and position.X > -1000 and position.X < 1000 then
+                    currentWorld = "Spawn World"
+                elseif position.X < -9000 and position.Z > -1000 then
+                    currentWorld = "Tech World"
+                elseif position.X < -9000 and position.Z < -7000 then
+                    currentWorld = "Void World"
+                else
+                    currentWorld = "Zone inconnue"
+                end
+                
+                -- Actualiser les informations
+                WorldInfo.Text = "Monde: " .. currentWorld
+                PositionInfo.Text = "Position: X:" .. math.floor(position.X) .. 
+                                  " Y:" .. math.floor(position.Y) .. 
+                                  " Z:" .. math.floor(position.Z)
+                
+                -- Déterminer si sous le sol
+                if position.Y < 0 then
+                    StatusInfo.Text = "Statut: SOUS LE SOL!"
+                    StatusInfo.TextColor3 = Color3.fromRGB(255, 0, 0)
+                else
+                    StatusInfo.Text = "Statut: OK"
+                    StatusInfo.TextColor3 = Color3.fromRGB(0, 255, 0)
+                end
+            end
+            wait(0.5)
+        end
+    end)
+    
+    return DebugUI
 end
 
 -- Démarrage avec système de clé
