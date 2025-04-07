@@ -300,3 +300,98 @@ function loadScript()
         -- Attendre que le sol charge
         loadingText.Text = "Chargement du sol..."
         wait(1.5)
+        -- Recherche du sol par raycast en descendant progressivement
+        local rayParams = RaycastParams.new()
+        rayParams.FilterType = Enum.RaycastFilterType.Blacklist
+        rayParams.FilterDescendantsInstances = {character}
+        
+        -- Tentative de détection du sol avec un rayon plus long
+        local rayResult = workspace:Raycast(safePosition, Vector3.new(0, -100, 0), rayParams)
+        
+        if rayResult then
+            -- Sol trouvé, se téléporter juste au-dessus
+            loadingText.Text = "Sol trouvé!"
+            local floorPosition = rayResult.Position + Vector3.new(0, 5, 0)  -- 5 unités au-dessus du sol
+            character.HumanoidRootPart.CFrame = CFrame.new(floorPosition)
+            wait(0.5)
+        else
+            -- Descente progressive pour trouver le sol
+            loadingText.Text = "Recherche du sol..."
+            local foundGround = false
+            
+            -- Descendre par paliers de 10 unités
+            for height = 0, -200, -10 do
+                local testPosition = Vector3.new(safePosition.X, safePosition.Y + height, safePosition.Z)
+                character.HumanoidRootPart.CFrame = CFrame.new(testPosition)
+                wait(0.2)
+                
+                -- Vérifier s'il y a un sol en dessous
+                local rayResult = workspace:Raycast(testPosition, Vector3.new(0, -20, 0), rayParams)
+                if rayResult then
+                    -- Sol trouvé
+                    local floorPosition = rayResult.Position + Vector3.new(0, 5, 0)
+                    character.HumanoidRootPart.CFrame = CFrame.new(floorPosition)
+                    foundGround = true
+                    loadingText.Text = "Sol trouvé à " .. math.floor(floorPosition.Y) .. " unités!"
+                    break
+                end
+            end
+            
+            -- Si aucun sol n'est trouvé, utiliser une position sécurisée par défaut
+            if not foundGround then
+                loadingText.Text = "Sol non trouvé, utilisation de position par défaut..."
+                local defaultY = position.Y + 10  -- Position Y par défaut
+                character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(position.X, defaultY, position.Z))
+            end
+        end
+        
+        -- Stabiliser en restant ancré pendant un moment
+        wait(1)
+        
+        -- Désancrer progressivement pour éviter les chutes brutales
+        loadingText.Text = "Stabilisation..."
+        
+        -- Appliquer une vélocité vers le haut pour contrer la gravité lors du désancrage
+        character.HumanoidRootPart.Velocity = Vector3.new(0, 5, 0)
+        character.HumanoidRootPart.Anchored = false
+        
+        -- Vérifier si le personnage est bien positionné après le désancrage
+        wait(0.5)
+        
+        -- Retirer l'écran de chargement
+        loadingScreen:Destroy()
+        _G.teleportInProgress = false
+        return true
+    end
+
+    -- Fonction pour collecter les objets à proximité
+    local function collectNearbyItems(radius)
+        local character = LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+        
+        local hrp = character.HumanoidRootPart
+        local radius = radius or _G.farmRadius
+        
+        local collectibles = {
+            {containerName = "Orbs", networkEvent = "CollectOrb"},
+            {containerName = "Lootbags", networkEvent = "CollectLootbag"},
+            {containerName = "Drops", networkEvent = "Collect"},
+            {containerName = "Coins", networkEvent = "Collect"}
+        }
+        
+        for _, collectible in ipairs(collectibles) do
+            local container = workspace:FindFirstChild(collectible.containerName)
+            if container then
+                for _, item in pairs(container:GetChildren()) do
+                    if (item.Position - hrp.Position).Magnitude <= radius then
+                        pcall(function()
+                            firetouchinterest(hrp, item, 0)
+                            wait()
+                            firetouchinterest(hrp, item, 1)
+                            ReplicatedStorage.Network:FireServer(collectible.networkEvent, item)
+                        end)
+                    end
+                end
+            end
+        end
+    end
