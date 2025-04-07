@@ -499,3 +499,9 @@ local function createSimpleKeyUI()
         end
     end)
 end
+-- Démarrer le script
+if keySystem then
+    createSimpleKeyUI()
+else
+    loadScript()
+    end
