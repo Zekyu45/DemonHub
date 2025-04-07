@@ -128,8 +128,7 @@ function loadScript()
             end
         end)
     end)
-
-    -- Auto Farm amélioré pour rester dans le monde actuel
+-- Auto Farm amélioré pour rester dans le monde actuel
     MainSection:NewToggle("Auto Farm", "Farm automatiquement les breakables dans la zone actuelle", function(state)
         _G.autoFarm = state
         
@@ -240,7 +239,7 @@ function loadScript()
     ScreenGui.Name = "PS99MobileControls"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = game:GetService("CoreGui")
+    ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") -- CHANGÉ: Utilisation de PlayerGui au lieu de CoreGui
 
     -- Créer le bouton pour minimiser/maximiser
     local toggleButton = Instance.new("TextButton")
@@ -259,10 +258,21 @@ function loadScript()
     spawn(function()
         wait(1)
         local kavoUI = nil
-        for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
+        -- CHANGÉ: Rechercher l'UI Kavo dans PlayerGui au lieu de CoreGui
+        for _, v in pairs(game.Players.LocalPlayer.PlayerGui:GetChildren()) do
             if v:IsA("ScreenGui") and v:FindFirstChild("Main") then
                 kavoUI = v
                 break
+            end
+        end
+        
+        -- Si on ne trouve pas dans PlayerGui, chercher dans CoreGui comme fallback
+        if not kavoUI then
+            for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
+                if v:IsA("ScreenGui") and v:FindFirstChild("Main") then
+                    kavoUI = v
+                    break
+                end
             end
         end
         
@@ -270,6 +280,9 @@ function loadScript()
             local mainFrame = kavoUI.Main
             local originalPosition = mainFrame.Position
             local isMinimized = false
+            
+            -- S'assurer que le mainFrame est visible
+            mainFrame.Visible = true -- AJOUTÉ: Forcer la visibilité
             
             -- Fonction pour basculer l'UI
             toggleButton.MouseButton1Click:Connect(function()
@@ -344,6 +357,16 @@ function loadScript()
                     draggingMain = false
                 end
             end)
+        else
+            -- AJOUTÉ: Message d'erreur si l'UI Kavo n'est pas trouvée
+            local errorMessage = Instance.new("TextLabel")
+            errorMessage.Size = UDim2.new(0, 200, 0, 50)
+            errorMessage.Position = UDim2.new(0.5, -100, 0.7, 0)
+            errorMessage.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            errorMessage.TextColor3 = Color3.fromRGB(255, 255, 255)
+            errorMessage.Text = "Erreur: UI Kavo non trouvée!"
+            errorMessage.TextScaled = true
+            errorMessage.Parent = ScreenGui
         end
     end)
 end
@@ -354,7 +377,7 @@ local function createSimpleKeyUI()
     ScreenGui.Name = "SimpleKeySystem"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = game:GetService("CoreGui")
+    ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui") -- CHANGÉ: Utilisation de PlayerGui au lieu de CoreGui
     
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
@@ -362,6 +385,7 @@ local function createSimpleKeyUI()
     MainFrame.Position = UDim2.new(0.5, -125, 0.5, -60)
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
     MainFrame.BorderSizePixel = 0
+    MainFrame.Visible = true -- AJOUTÉ: S'assurer que le cadre est visible
     MainFrame.Parent = ScreenGui
     
     local Title = Instance.new("TextLabel")
@@ -461,4 +485,16 @@ local function createSimpleKeyUI()
         end
     end)
     
-    UserInputService.InputEnded:Connect(function(i
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- Démarrer le script
+if keySystem then
+    createSimpleKeyUI()
+else
+    loadScript()
+end
