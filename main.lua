@@ -741,5 +741,47 @@ for _, zoneInfo in ipairs(specificZones) do
         end
     end)
 end
+-- Tab Performance
+local PerformanceTab = Window:NewTab("Performance")
+local PerformanceSection = PerformanceTab:NewSection("Améliorer FPS")
+
+-- Boost FPS
+PerformanceSection:NewButton("Boost FPS", "Améliore les performances", function()
+    pcall(function()
+        -- Désactiver les effets de Lighting
+        for _, v in pairs(game:GetService("Lighting"):GetChildren()) do
+            if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("ColorCorrectionEffect") then
+                v.Enabled = false
+            end
+        end
+        
+        -- Réduire la qualité des graphiques
+        settings().Rendering.QualityLevel = 1
+        game:GetService("Lighting").GlobalShadows = false
+        game:GetService("Lighting").FogEnd = 9e9
+        
+        -- Simplifier tous les matériaux
+        for _, v in pairs(workspace:GetDescendants()) do
+            if v:IsA("Part") or v:IsA("UnionOperation") or v:IsA("MeshPart") then
+                v.Material = Enum.Material.Plastic
+                v.Reflectance = 0
+            elseif v:IsA("Decal") and v.Name ~= "face" then
+                v.Transparency = 1
+            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                v.Lifetime = NumberRange.new(0)
+            elseif v:IsA("Explosion") then
+                v.BlastPressure = 0
+                v.BlastRadius = 0
+            end
+        end
+        
+        -- Message de confirmation
+        StarterGui:SetCore("SendNotification", {
+            Title = "Performance",
+            Text = "FPS boostés avec succès!",
+            Duration = 3
+        })
+    end)
+end)
                     
     
