@@ -16,7 +16,6 @@ function loadScript()
     _G.autoFarm = false
     _G.uiMinimized = false
     _G.dragginUI = false
-    _G.bestZone = "Fantasy" -- Zone par défaut
 
     -- Fonction Anti-AFK simplifiée
     local Players = game:GetService("Players")
@@ -57,18 +56,29 @@ function loadScript()
         return nearest
     end
 
-    -- Fonction pour se téléporter à la meilleure zone
-    local function teleportToBestZone()
-        local zones = {
-            ["Spawn"] = Vector3.new(170, 130, 250),
-            ["Fantasy"] = Vector3.new(3057, 130, 2130),
-            ["Tech"] = Vector3.new(4325, 130, 1850),
-            ["Void"] = Vector3.new(3678, 130, 1340)
-        }
+    -- Fonction pour trouver la meilleure zone DANS LE MONDE ACTUEL
+    local function getBestZoneInCurrentWorld()
+        local character = LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
         
-        if zones[_G.bestZone] and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(zones[_G.bestZone])
-            wait(0.5)
+        local hrp = character.HumanoidRootPart
+        local currentPosition = hrp.Position
+        
+        -- Zones dans le Spawn World
+        if currentPosition.X < 1000 then
+            return "Spawn", Vector3.new(170, 130, 250)
+        -- Zones dans le Fantasy World
+        elseif currentPosition.X > 2000 and currentPosition.X < 4000 and currentPosition.Z > 1500 then
+            return "Fantasy", Vector3.new(3057, 130, 2130)
+        -- Zones dans le Tech World
+        elseif currentPosition.X > 4000 then
+            return "Tech", Vector3.new(4325, 130, 1850)
+        -- Zones dans le Void World
+        elseif currentPosition.X > 3000 and currentPosition.Z < 1500 then
+            return "Void", Vector3.new(3678, 130, 1340)
+        else
+            -- Si on ne peut pas déterminer le monde, on reste sur place
+            return "Unknown", hrp.Position + Vector3.new(0, 5, 0)
         end
     end
 
@@ -119,19 +129,29 @@ function loadScript()
         end)
     end)
 
-    -- Auto Farm amélioré
-    MainSection:NewToggle("Auto Farm", "Farm automatiquement les breakables dans la meilleure zone", function(state)
+    -- Auto Farm amélioré pour rester dans le monde actuel
+    MainSection:NewToggle("Auto Farm", "Farm automatiquement les breakables dans la zone actuelle", function(state)
         _G.autoFarm = state
         
         spawn(function()
             while _G.autoFarm and wait(0.5) do
-                teleportToBestZone()
+                -- Obtenir la meilleure zone DANS le monde actuel
+                local zoneName, zonePosition = getBestZoneInCurrentWorld()
+                
+                -- Téléporter à la position de sécurité dans le monde actuel
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    -- S'assurer que la position est à une hauteur sécuritaire pour éviter le vide
+                    local safePosition = Vector3.new(zonePosition.X, zonePosition.Y + 10, zonePosition.Z)
+                    character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+                    wait(0.5) -- Attendre pour que le personnage se stabilise
+                end
                 
                 local nearest = findNearestBreakable()
                 if nearest then
-                    local character = LocalPlayer.Character
                     if character and character:FindFirstChild("HumanoidRootPart") then
-                        character.HumanoidRootPart.CFrame = nearest.PrimaryPart.CFrame * CFrame.new(0, 5, 0)
+                        -- S'assurer d'être au-dessus du breakable pour éviter de tomber
+                        character.HumanoidRootPart.CFrame = nearest.PrimaryPart.CFrame * CFrame.new(0, 7, 0)
                         
                         pcall(function()
                             game:GetService("ReplicatedStorage").Network:FireServer("PetAttack", nearest)
@@ -146,38 +166,39 @@ function loadScript()
                     end
                 else
                     local randomOffset = Vector3.new(math.random(-30, 30), 0, math.random(-30, 30))
-                    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(LocalPlayer.Character.HumanoidRootPart.Position + randomOffset)
+                    if character and character:FindFirstChild("HumanoidRootPart") then
+                        -- Ajouter une hauteur sécuritaire pour éviter le vide
+                        character.HumanoidRootPart.CFrame = CFrame.new(character.HumanoidRootPart.Position + Vector3.new(randomOffset.X, 10, randomOffset.Z))
                     end
                 end
             end
         end)
     end)
 
-    -- Sélection de la meilleure zone
-    local zoneDropdown = MainSection:NewDropdown("Meilleure Zone", "Sélectionner votre meilleure zone pour le farming", {"Spawn", "Fantasy", "Tech", "Void"}, function(selected)
-        _G.bestZone = selected
-    end)
-
     -- Tab Téléportation
     local TeleportTab = Window:NewTab("Téléportation")
     local TeleportSection = TeleportTab:NewSection("Zones")
 
-    -- Zones (coordonnées améliorées)
-    local zones = {
-        ["Spawn"] = Vector3.new(170, 130, 250),
-        ["Fantasy"] = Vector3.new(3057, 130, 2130),
-        ["Tech"] = Vector3.new(4325, 130, 1850),
-        ["Void"] = Vector3.new(3678, 130, 1340)
-    }
+    -- Téléportation dans le monde actuel seulement
+    TeleportSection:NewButton("Meilleure zone du monde actuel", "Téléporte à la meilleure zone dans le monde actuel", function()
+        local _, zonePosition = getBestZoneInCurrentWorld()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            -- S'assurer d'utiliser une hauteur sécuritaire
+            local safePosition = Vector3.new(zonePosition.X, zonePosition.Y + 10, zonePosition.Z)
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+        end
+    end)
 
-    for name, pos in pairs(zones) do
-        TeleportSection:NewButton(name, "Téléporte à " .. name, function()
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(pos)
-            end
-        end)
-    end
+    -- Téléportation aléatoire sécuritaire
+    TeleportSection:NewButton("Zone aléatoire sécuritaire", "Téléporte à un endroit aléatoire sécuritaire", function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            local currentPos = LocalPlayer.Character.HumanoidRootPart.Position
+            local randomOffset = Vector3.new(math.random(-50, 50), 0, math.random(-50, 50))
+            -- Ajouter une hauteur sécuritaire
+            local safePosition = Vector3.new(currentPos.X + randomOffset.X, currentPos.Y + 10, currentPos.Z + randomOffset.Z)
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+        end
+    end)
 
     -- Tab Performance
     local PerformanceTab = Window:NewTab("Performance")
@@ -254,6 +275,12 @@ function loadScript()
             toggleButton.MouseButton1Click:Connect(function()
                 isMinimized = not isMinimized
                 mainFrame.Visible = not isMinimized
+                -- Changer la couleur du bouton pour indiquer l'état
+                if isMinimized then
+                    toggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Rouge quand minimisé
+                else
+                    toggleButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215) -- Bleu quand visible
+                end
             end)
             
             -- Rendre l'UI déplaçable pour mobile
@@ -434,16 +461,4 @@ local function createSimpleKeyUI()
         end
     end)
     
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-end
-
--- Démarrer le script
-if keySystem then
-    createSimpleKeyUI()
-else
-    loadScript()
-end
+    UserInputService.InputEnded:Connect(function(i
