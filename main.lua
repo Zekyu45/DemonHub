@@ -49,6 +49,7 @@ function loadScript()
 
     -- Structure des mondes et leurs limites de zones
     local worlds = {
+        -- Position du monde Spawn corrigée, les autres valeurs sont conservées
         {name = "Spawn World", minZone = 1, maxZone = 99, basePosition = Vector3.new(121.71, 16.54, -204.95), offsetX = 5, offsetZ = 3},
         {name = "Tech World", minZone = 100, maxZone = 199, basePosition = Vector3.new(4325, 130, 1850), offsetX = 3, offsetZ = 0},
         {name = "Void World", minZone = 200, maxZone = 239, basePosition = Vector3.new(3678, 130, 1340), offsetX = 0, offsetZ = -3}
@@ -84,14 +85,12 @@ function loadScript()
         local playerStats = LocalPlayer:WaitForChild("PlayerGui", 5):FindFirstChild("Main")
         local highestZone = 1
         
-        -- Vérifier les zones débloquées
+        -- Vérifier les zones débloquées dans l'interface
         if playerStats and playerStats:FindFirstChild("UnlockedZones") then
             for i = 1, 239 do
-                -- Vérifier si la zone est débloquée
                 if playerStats.UnlockedZones:FindFirstChild("Zone"..i) and playerStats.UnlockedZones["Zone"..i].Value then
                     highestZone = i
                 else
-                    -- Si on trouve une zone non débloquée, on s'arrête
                     break
                 end
             end
@@ -123,42 +122,47 @@ function loadScript()
         local currentWorld = getCurrentWorld()
         local highestUnlockedZone = getHighestUnlockedZone()
         
-        -- Si le joueur n'a pas débloqué de zone dans ce monde
-        if highestUnlockedZone < currentWorld.minZone then
-            -- Si c'est le monde de départ, revenir à la zone 1
-            if currentWorld.name == "Spawn World" then
-                return "Spawn World Zone 1", currentWorld.basePosition
-            else
-                -- Sinon, trouver le monde précédent et utiliser sa dernière zone
-                for i, world in ipairs(worlds) do
-                    if world.name == currentWorld.name and i > 1 then
-                        local prevWorld = worlds[i-1]
-                        local zoneInWorld = math.min(highestUnlockedZone, prevWorld.maxZone)
-                        
-                        local offset = zoneInWorld - prevWorld.minZone + 1
-                        local zonePosition = Vector3.new(
-                            prevWorld.basePosition.X + (offset * prevWorld.offsetX),
-                            prevWorld.basePosition.Y,
-                            prevWorld.basePosition.Z + (offset * prevWorld.offsetZ)
-                        )
-                        
-                        return prevWorld.name .. " Zone " .. zoneInWorld, zonePosition
-                    end
-                end
-                
-                -- Fallback vers la zone 1 du monde de départ
-                return "Spawn World Zone 1", worlds[1].basePosition
-            end
+        -- S'assurer que nous utilisons la zone la plus élevée possible dans le monde actuel
+        local zoneInWorld = highestUnlockedZone
+        
+        -- Si la zone la plus élevée est supérieure au maximum du monde actuel, utiliser le maximum du monde
+        if zoneInWorld > currentWorld.maxZone then
+            zoneInWorld = currentWorld.maxZone
         end
         
-        -- Sinon utiliser la zone la plus haute débloquée dans ce monde
-        local zoneInWorld = math.min(highestUnlockedZone, currentWorld.maxZone)
+        -- Si la zone la plus élevée est inférieure au minimum du monde actuel, utiliser le minimum du monde
         if zoneInWorld < currentWorld.minZone then
+            -- Cas où nous sommes dans un monde plus avancé mais n'avons pas encore débloqué de zones
+            -- Retourner au monde précédent où nous avons des zones débloquées
+            if currentWorld.name ~= "Spawn World" then
+                for i, world in ipairs(worlds) do
+                    if world.name == currentWorld.name then
+                        -- Trouver le monde précédent
+                        if i > 1 then
+                            local prevWorld = worlds[i-1]
+                            local bestZoneInPrevWorld = math.min(highestUnlockedZone, prevWorld.maxZone)
+                            
+                            -- Calculer la position dans le monde précédent
+                            local offset = bestZoneInPrevWorld - prevWorld.minZone + 1
+                            local zonePosition = Vector3.new(
+                                prevWorld.basePosition.X + (offset * prevWorld.offsetX),
+                                prevWorld.basePosition.Y,
+                                prevWorld.basePosition.Z + (offset * prevWorld.offsetZ)
+                            )
+                            
+                            return prevWorld.name .. " Zone " .. bestZoneInPrevWorld, zonePosition
+                        end
+                        break
+                    end
+                end
+            end
+            
+            -- Si nous sommes dans le monde de départ ou si aucun monde précédent n'est trouvé
             zoneInWorld = currentWorld.minZone
         end
         
+        -- Calculer la position de la zone
         local offset = zoneInWorld - currentWorld.minZone + 1
-        
         local zonePosition = Vector3.new(
             currentWorld.basePosition.X + (offset * currentWorld.offsetX),
             currentWorld.basePosition.Y,
@@ -202,13 +206,12 @@ function loadScript()
         
         return nearest
     end
-
-    -- Fonction de téléportation sécurisée
+-- Fonction de téléportation sécurisée
     local function safelyTeleportTo(position, teleportHeight)
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
         
-        -- Ajoutons un petit offset aléatoire pour éviter les obstacles
+        -- Ajout d'un offset aléatoire pour éviter les obstacles
         local randomOffset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
         local safePosition = Vector3.new(position.X, position.Y + (teleportHeight or 20), position.Z) + randomOffset
         
@@ -216,7 +219,7 @@ function loadScript()
         character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
         wait(0.5)
         
-        -- Vérifier s'il y a un obstacle
+        -- Vérification des obstacles par raycast
         local rayParams = RaycastParams.new()
         rayParams.FilterType = Enum.RaycastFilterType.Blacklist
         rayParams.FilterDescendantsInstances = {character}
@@ -326,6 +329,7 @@ function loadScript()
                 while _G.autoFarm do
                     if not game:GetService("Players").LocalPlayer then break end
                     
+                    -- Obtenir la meilleure zone débloquée dans le monde actuel
                     local zoneName, zonePosition = getBestUnlockedZoneInCurrentWorld()
                     safelyTeleportTo(zonePosition, 20)
                     
@@ -336,10 +340,13 @@ function loadScript()
                     })
                     
                     local farmTime = 0
-                    while _G.autoFarm and farmTime < 30 do
+                    local consecutiveNoBreakables = 0
+                    
+                    while _G.autoFarm and farmTime < 30 and consecutiveNoBreakables < 3 do
                         local nearest = findNearestBreakable()
                         
                         if nearest then
+                            consecutiveNoBreakables = 0
                             local character = LocalPlayer.Character
                             if character and character:FindFirstChild("HumanoidRootPart") then
                                 local breakablePart = nearest:FindFirstChild("PrimaryPart") or nearest:FindFirstChildWhichIsA("Part")
@@ -364,10 +371,18 @@ function loadScript()
                                 end
                             end
                         else
+                            consecutiveNoBreakables = consecutiveNoBreakables + 1
                             local character = LocalPlayer.Character
                             if character and character:FindFirstChild("HumanoidRootPart") then
                                 -- Explorer la zone avec un rayon plus grand pour trouver des breakables
-                                local exploreOffset = Vector3.new(math.random(-20, 20), 0, math.random(-20, 20))
+                                -- Utilisons un pattern en spirale pour mieux couvrir la zone
+                                local angle = farmTime * math.pi / 6
+                                local radius = 10 + (farmTime % 4) * 5
+                                local exploreOffset = Vector3.new(
+                                    math.cos(angle) * radius,
+                                    0,
+                                    math.sin(angle) * radius
+                                )
                                 character.HumanoidRootPart.CFrame = CFrame.new(zonePosition + exploreOffset)
                             end
                             wait(0.3)
@@ -460,60 +475,60 @@ function createKeyUI()
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.TextSize = 18.000
     
-KeyInput.Name = "KeyInput"
-KeyInput.Parent = MainFrame
-KeyInput.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-KeyInput.BorderSizePixel = 1
-KeyInput.BorderColor3 = Color3.fromRGB(0, 120, 215)
-KeyInput.Position = UDim2.new(0.1, 0, 0.3, 0)
-KeyInput.Size = UDim2.new(0.8, 0, 0, 40)
-KeyInput.Font = Enum.Font.Gotham
-KeyInput.PlaceholderText = "Entrez votre clé ici..."
-KeyInput.Text = ""
-KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-KeyInput.TextSize = 16.000
-
-SubmitButton.Name = "SubmitButton"
-SubmitButton.Parent = MainFrame
-SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-SubmitButton.BorderSizePixel = 0
-SubmitButton.Position = UDim2.new(0.25, 0, 0.6, 0)
-SubmitButton.Size = UDim2.new(0.5, 0, 0, 35)
-SubmitButton.Font = Enum.Font.GothamBold
-SubmitButton.Text = "Valider"
-SubmitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-SubmitButton.TextSize = 16.000
-
-StatusLabel.Name = "StatusLabel"
-StatusLabel.Parent = MainFrame
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
-StatusLabel.Size = UDim2.new(1, 0, 0, 30)
-StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.Text = "Entrez la clé: zekyu"
-StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-StatusLabel.TextSize = 14.000
-
--- Fonction de vérification de clé
-local function checkKey()
-    if KeyInput.Text == correctKey then
-        StatusLabel.Text = "Clé valide! Chargement..."
-        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-        wait(1)
-        KeyUI:Destroy()
-        loadScript()
-    else
-        StatusLabel.Text = "Clé invalide! Essayez 'zekyu'"
-        StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    KeyInput.Name = "KeyInput"
+    KeyInput.Parent = MainFrame
+    KeyInput.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+    KeyInput.BorderSizePixel = 1
+    KeyInput.BorderColor3 = Color3.fromRGB(0, 120, 215)
+    KeyInput.Position = UDim2.new(0.1, 0, 0.3, 0)
+    KeyInput.Size = UDim2.new(0.8, 0, 0, 40)
+    KeyInput.Font = Enum.Font.Gotham
+    KeyInput.PlaceholderText = "Entrez votre clé ici..."
+    KeyInput.Text = ""
+    KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    KeyInput.TextSize = 16.000
+    
+    SubmitButton.Name = "SubmitButton"
+    SubmitButton.Parent = MainFrame
+    SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    SubmitButton.BorderSizePixel = 0
+    SubmitButton.Position = UDim2.new(0.25, 0, 0.6, 0)
+    SubmitButton.Size = UDim2.new(0.5, 0, 0, 35)
+    SubmitButton.Font = Enum.Font.GothamBold
+    SubmitButton.Text = "Valider"
+    SubmitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    SubmitButton.TextSize = 16.000
+    
+    StatusLabel.Name = "StatusLabel"
+    StatusLabel.Parent = MainFrame
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
+    StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+    StatusLabel.Font = Enum.Font.Gotham
+    StatusLabel.Text = "Entrez la clé: zekyu"
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StatusLabel.TextSize = 14.000
+    
+    -- Fonction de vérification de clé
+    local function checkKey()
+        if KeyInput.Text == correctKey then
+            StatusLabel.Text = "Clé valide! Chargement..."
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            wait(1)
+            KeyUI:Destroy()
+            loadScript()
+        else
+            StatusLabel.Text = "Clé invalide! Essayez 'zekyu'"
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+        end
     end
-end
-
-SubmitButton.MouseButton1Click:Connect(checkKey)
-KeyInput.FocusLost:Connect(function(enterPressed)
-    if enterPressed then checkKey() end
-end)
-
-return KeyUI
+    
+    SubmitButton.MouseButton1Click:Connect(checkKey)
+    KeyInput.FocusLost:Connect(function(enterPressed)
+        if enterPressed then checkKey() end
+    end)
+    
+    return KeyUI
 end
 
 -- Démarrage avec système de clé
