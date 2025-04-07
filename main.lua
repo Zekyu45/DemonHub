@@ -373,277 +373,272 @@ function loadScript()
             end
         end)
     end)
--- Tab Téléportation
-local TeleportTab = Window:NewTab("Téléportation")
-local TeleportSection = TeleportTab:NewSection("Zones")
+    -- Tab Téléportation
+    local TeleportTab = Window:NewTab("Téléportation")
+    local TeleportSection = TeleportTab:NewSection("Zones")
 
--- Téléportation dans le monde actuel seulement
-TeleportSection:NewButton("Meilleure zone du monde actuel", "Téléporte à la meilleure zone dans le monde actuel", function()
-    local zoneName, zonePosition = getBestZoneInCurrentWorld()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            -- S'assurer d'utiliser une hauteur sécuritaire
-            local safePosition = Vector3.new(zonePosition.X, zonePosition.Y + 10, zonePosition.Z)
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
-            
-            -- Afficher un message pour informer l'utilisateur
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Téléporté à: " .. zoneName,
-                Duration = 3
-            })
-        end)
-    end
-end)
+    -- Téléportation dans le monde actuel seulement
+    TeleportSection:NewButton("Meilleure zone du monde actuel", "Téléporte à la meilleure zone dans le monde actuel", function()
+        local zoneName, zonePosition = getBestZoneInCurrentWorld()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            pcall(function()
+                -- S'assurer d'utiliser une hauteur sécuritaire
+                local safePosition = Vector3.new(zonePosition.X, zonePosition.Y + 10, zonePosition.Z)
+                LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+                
+                -- Afficher un message pour informer l'utilisateur
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Téléportation",
+                    Text = "Téléporté à: " .. zoneName,
+                    Duration = 3
+                })
+            end)
+        end
+    end)
 
--- Téléportation aléatoire sécuritaire
-TeleportSection:NewButton("Zone aléatoire sécuritaire", "Téléporte à un endroit aléatoire sécuritaire", function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            local currentPos = LocalPlayer.Character.HumanoidRootPart.Position
-            local randomOffset = Vector3.new(math.random(-50, 50), 0, math.random(-50, 50))
-            -- Ajouter une hauteur sécuritaire
-            local safePosition = Vector3.new(currentPos.X + randomOffset.X, currentPos.Y + 10, currentPos.Z + randomOffset.Z)
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
-            
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Téléporté à une zone aléatoire",
-                Duration = 3
-            })
-        end)
-    end
-end)
-
--- Ajout d'un bouton pour se téléporter au spawn
-TeleportSection:NewButton("Téléporter au Spawn", "Retourne à la zone de départ", function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            -- Coordonnées du spawn (ajustez selon le jeu)
-            local spawnPosition = Vector3.new(170, 130, 250)
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(spawnPosition)
-            
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Téléporté au Spawn",
-                Duration = 3
-            })
-        end)
-    end
-end)
-
--- Téléportation aux autres mondes
-local WorldSection = TeleportTab:NewSection("Mondes")
-
--- Monde Fantaisie
-WorldSection:NewButton("Monde Fantaisie", "Téléporte au monde Fantaisie", function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            local fantasyPosition = Vector3.new(3057, 130, 2130)
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(fantasyPosition)
-            
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Téléporté au Monde Fantaisie",
-                Duration = 3
-            })
-        end)
-    end
-end)
-
--- Monde Tech
-WorldSection:NewButton("Monde Tech", "Téléporte au monde Tech", function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            local techPosition = Vector3.new(4325, 130, 1850)
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(techPosition)
-            
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Téléporté au Monde Tech",
-                Duration = 3
-            })
-        end)
-    end
-end)
-
--- Monde Void
-WorldSection:NewButton("Monde Void", "Téléporte au monde Void", function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            local voidPosition = Vector3.new(3678, 130, 1340)
-            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(voidPosition)
-            
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Téléporté au Monde Void",
-                Duration = 3
-            })
-        end)
-    end
-end)
-
--- Système anti-chute
-local SafetySection = TeleportTab:NewSection("Sécurité")
-
--- Sauvetage en cas de chute
-SafetySection:NewButton("Anti-Void", "Te sauve si tu tombes dans le vide", function()
-    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-        pcall(function()
-            local currentPos = LocalPlayer.Character.HumanoidRootPart.Position
-            -- Si on est en train de tomber, repositionner à une hauteur sécuritaire
-            if currentPos.Y < -50 then
-                local safePosition = Vector3.new(currentPos.X, 130, currentPos.Z)
+    -- Téléportation aléatoire sécuritaire
+    TeleportSection:NewButton("Zone aléatoire sécuritaire", "Téléporte à un endroit aléatoire sécuritaire", function()
+        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            pcall(function()
+                local currentPos = LocalPlayer.Character.HumanoidRootPart.Position
+                local randomOffset = Vector3.new(math.random(-50, 50), 0, math.random(-50, 50))
+                -- Ajouter une hauteur sécuritaire
+                local safePosition = Vector3.new(currentPos.X + randomOffset.X, currentPos.Y + 10, currentPos.Z + randomOffset.Z)
                 LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
                 
                 StarterGui:SetCore("SendNotification", {
-                    Title = "Sécurité",
-                    Text = "Sauvé du vide!",
+                    Title = "Téléportation",
+                    Text = "Téléporté à une zone aléatoire",
                     Duration = 3
                 })
-            else
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Sécurité",
-                    Text = "Vous n'êtes pas en train de tomber",
-                    Duration = 3
-                })
-            end
-        end)
-    end
-end)
+            end)
+        end
+    end)
 
--- Activation anti-void automatique
-local autoAntiVoid = false
-SafetySection:NewToggle("Auto Anti-Void", "Sauve automatiquement en cas de chute", function(state)
-    autoAntiVoid = state
-    
-    spawn(function()
-        while autoAntiVoid do
-            wait(0.5)
-            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                local currentPos = LocalPlayer.Character.HumanoidRootPart.Position
-                if currentPos.Y < -50 then
-                    pcall(function()
-                        local safePosition = Vector3.new(currentPos.X, 130, currentPos.Z)
-                        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
-                        
-                        StarterGui:SetCore("SendNotification", {
-                            Title = "Sécurité",
-                            Text = "Sauvé du vide automatiquement!",
-                            Duration = 2
-                        })
-                    end)
+    -- Tab Performance
+    local PerformanceTab = Window:NewTab("Performance")
+    local PerformanceSection = PerformanceTab:NewSection("Améliorer FPS")
+
+    -- Boost FPS
+    PerformanceSection:NewButton("Boost FPS", "Améliore les performances", function()
+        pcall(function()
+            for _, v in pairs(game:GetService("Lighting"):GetChildren()) do
+                if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("ColorCorrectionEffect") then
+                    v.Enabled = false
                 end
             end
-        end
-    end)
-end)
-
--- Tab Performance
-local PerformanceTab = Window:NewTab("Performance")
-local PerformanceSection = PerformanceTab:NewSection("Améliorer FPS")
-
--- Boost FPS
-PerformanceSection:NewButton("Boost FPS", "Améliore les performances", function()
-    pcall(function()
-        for _, v in pairs(game:GetService("Lighting"):GetChildren()) do
-            if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("ColorCorrectionEffect") then
-                v.Enabled = false
+            
+            settings().Rendering.QualityLevel = 1
+            game:GetService("Lighting").GlobalShadows = false
+            game:GetService("Lighting").FogEnd = 9e9
+            
+            settings().Rendering.QualityLevel = "Level01"
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("Part") or v:IsA("UnionOperation") or v:IsA("MeshPart") then
+                    v.Material = Enum.Material.Plastic
+                    v.Reflectance = 0
+                elseif v:IsA("Decal") and v.Name ~= "face" then
+                    v.Transparency = 1
+                elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
+                    v.Lifetime = NumberRange.new(0)
+                elseif v:IsA("Explosion") then
+                    v.BlastPressure = 0
+                    v.BlastRadius = 0
+                end
             end
-        end
-        
-        settings().Rendering.QualityLevel = 1
-        game:GetService("Lighting").GlobalShadows = false
-        game:GetService("Lighting").FogEnd = 9e9
-        
-        settings().Rendering.QualityLevel = "Level01"
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("Part") or v:IsA("UnionOperation") or v:IsA("MeshPart") then
-                v.Material = Enum.Material.Plastic
-                v.Reflectance = 0
-            elseif v:IsA("Decal") and v.Name ~= "face" then
-                v.Transparency = 1
-            elseif v:IsA("ParticleEmitter") or v:IsA("Trail") then
-                v.Lifetime = NumberRange.new(0)
-            elseif v:IsA("Explosion") then
-                v.BlastPressure = 0
-                v.BlastRadius = 0
-            end
-        end
-        
-        -- Message de confirmation
-        StarterGui:SetCore("SendNotification", {
-            Title = "Performance",
-            Text = "FPS boostés avec succès!",
-            Duration = 3
-        })
+            
+            -- Message de confirmation
+            StarterGui:SetCore("SendNotification", {
+                Title = "Performance",
+                Text = "FPS boostés avec succès!",
+                Duration = 3
+            })
+        end)
     end)
-end)
-
--- Ajout d'un bouton pour supprimer les textures
-PerformanceSection:NewButton("Supprimer Textures", "Supprime les textures pour augmenter les FPS", function()
-    pcall(function()
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v:IsA("Decal") or v:IsA("Texture") then
-                v.Transparency = 1
-            end
-            if v:IsA("MeshPart") then
-                v.TextureID = ""
-            end
-        end
-        
-        StarterGui:SetCore("SendNotification", {
-            Title = "Performance",
-            Text = "Textures supprimées!",
-            Duration = 3
-        })
-    end)
-end)
-
--- Optimiser la mémoire
-PerformanceSection:NewButton("Nettoyer Mémoire", "Libère la mémoire pour plus de fluidité", function()
-    pcall(function()
-        for i = 1, 10 do
-            game:GetService("RunService").RenderStepped:Wait()
-        end
-        
-        game:GetService("Debris"):AddItem(script, 0)
-        game:GetService("TweenService"):GetTweens()
-        
-        for i = 1, 5 do
-            wait()
-            collectgarbage("collect")
-        end
-        
-        StarterGui:SetCore("SendNotification", {
-            Title = "Performance",
-            Text = "Mémoire nettoyée avec succès!",
-            Duration = 3
-        })
-    end)
-end)
-
--- Tab Info Supplémentaire
-local InfoTab = Window:NewTab("Info")
-local InfoSection = InfoTab:NewSection("Informations")
-
-InfoSection:NewLabel("Version: 2.0")
-InfoSection:NewLabel("Mobile Optimisé: Oui")
-InfoSection:NewLabel("Clé: "..correctKey)
-
--- Ajouter un crédit
-InfoSection:NewLabel("Scripté par zekyu")
-
--- Bouton pour copier le Discord
-InfoSection:NewButton("Copier Discord", "Copie le lien Discord", function()
-    pcall(function()
-        setclipboard("discord.gg/zekyu")
-        
-        StarterGui:SetCore("SendNotification", {
-            Title = "Info",
-            Text = "Discord copié dans le presse-papier!",
-            Duration = 3
-        })
-    end)
-end)
     
+    -- Ajout d'un bouton pour supprimer les textures
+    PerformanceSection:NewButton("Supprimer Textures", "Supprime les textures pour augmenter les FPS", function()
+        pcall(function()
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v:IsA("Decal") or v:IsA("Texture") then
+                    v.Transparency = 1
+                end
+                if v:IsA("MeshPart") then
+                    v.TextureID = ""
+                end
+            end
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Performance",
+                Text = "Textures supprimées!",
+                Duration = 3
+            })
+        end)
+    end)
+    
+    -- Tab Info Supplémentaire
+    local InfoTab = Window:NewTab("Info")
+    local InfoSection = InfoTab:NewSection("Informations")
+    
+    InfoSection:NewLabel("Version: 2.0")
+    InfoSection:NewLabel("Mobile Optimisé: Oui")
+    InfoSection:NewLabel("Clé: "..correctKey)
+end
+
+-- Fonction améliorée pour le système de clé avec gestion d'erreurs
+local function createSimpleKeyUI()
+    -- Supprimer l'ancien système de clé s'il existe
+    for _, ui in pairs(game.Players.LocalPlayer.PlayerGui:GetChildren()) do
+        if ui.Name == "SimpleKeySystem" then
+            ui:Destroy()
+        end
+    end
+    
+    -- Créer une nouvelle interface
+    pcall(function()
+        local ScreenGui = Instance.new("ScreenGui")
+        ScreenGui.Name = "SimpleKeySystem"
+        ScreenGui.ResetOnSpawn = false
+        ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+        ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
+        
+        local MainFrame = Instance.new("Frame")
+        MainFrame.Name = "MainFrame"
+        MainFrame.Size = UDim2.new(0, 250, 0, 120)
+        MainFrame.Position = UDim2.new(0.5, -125, 0.5, -60)
+        MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+        MainFrame.BorderSizePixel = 0
+        MainFrame.Visible = true
+        MainFrame.Parent = ScreenGui
+        
+        local Title = Instance.new("TextLabel")
+        Title.Name = "Title"
+        Title.Size = UDim2.new(1, 0, 0, 30)
+        Title.Position = UDim2.new(0, 0, 0, 0)
+        Title.BackgroundColor3 = Color3.fromRGB(0, 85, 127)
+        Title.BorderSizePixel = 0
+        Title.Text = "PS99 Mobile - Clé"
+        Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Title.TextSize = 18
+        Title.Font = Enum.Font.SourceSansBold
+        Title.Parent = MainFrame
+        
+        local KeyBox = Instance.new("TextBox")
+        KeyBox.Name = "KeyBox"
+        KeyBox.Size = UDim2.new(0.8, 0, 0, 30)
+        KeyBox.Position = UDim2.new(0.1, 0, 0.35, 0)
+        KeyBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+        KeyBox.BorderColor3 = Color3.fromRGB(0, 170, 255)
+        KeyBox.BorderSizePixel = 2
+        KeyBox.Text = ""
+        KeyBox.PlaceholderText = "Entrez la clé..."
+        KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+        KeyBox.TextSize = 16
+        KeyBox.Font = Enum.Font.SourceSans
+        KeyBox.Parent = MainFrame
+        KeyBox.ClearTextOnFocus = false
+        
+        local LoginButton = Instance.new("TextButton")
+        LoginButton.Name = "LoginButton"
+        LoginButton.Size = UDim2.new(0.8, 0, 0, 30)
+        LoginButton.Position = UDim2.new(0.1, 0, 0.7, 0)
+        LoginButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+        LoginButton.BorderSizePixel = 0
+        LoginButton.Text = "Connexion"
+        LoginButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        LoginButton.TextSize = 16
+        LoginButton.Font = Enum.Font.SourceSansBold
+        LoginButton.Parent = MainFrame
+        
+        -- Fonction pour vérifier la clé
+        local function verifyKey()
+            if KeyBox.Text == correctKey then
+                ScreenGui:Destroy()
+                loadScript()
+                return true
+            else
+                KeyBox.Text = ""
+                KeyBox.PlaceholderText = "Clé incorrecte!"
+                KeyBox.PlaceholderColor3 = Color3.fromRGB(255, 100, 100)
+                wait(1)
+                KeyBox.PlaceholderText = "Entrez la clé..."
+                KeyBox.PlaceholderColor3 = Color3.fromRGB(178, 178, 178)
+                return false
+            end
+        end
+        
+        -- Vérification de la clé avec protection d'erreur
+        LoginButton.MouseButton1Click:Connect(function()
+            pcall(function()
+                verifyKey()
+            end)
+        end)
+        
+        -- Permettre d'utiliser Enter pour se connecter
+        KeyBox.FocusLost:Connect(function(enterPressed)
+            if enterPressed then
+                pcall(function()
+                    verifyKey()
+                end)
+            end
+        end)
+        
+        -- Rendre l'interface déplaçable pour mobile
+        local UserInputService = game:GetService("UserInputService")
+        local dragging = false
+        local dragInput
+        local dragStart
+        local startPos
+        
+        -- Fonction pour commencer le glissement
+        local function beginDrag(input)
+            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                dragging = true
+                dragStart = input.Position
+                startPos = MainFrame.Position
+            end
+        end
+        
+        -- Connexion pour le glissement (avec protection d'erreur)
+        Title.InputBegan:Connect(function(input)
+            pcall(function()
+                beginDrag(input)
+            end)
+        end)
+        
+        UserInputService.InputChanged:Connect(function(input)
+            pcall(function()
+                if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
+                    local delta = input.Position - dragStart
+                    MainFrame.Position = UDim2.new(
+                        startPos.X.Scale, 
+                        startPos.X.Offset + delta.X,
+                        startPos.Y.Scale, 
+                        startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+        end)
+        
+        UserInputService.InputEnded:Connect(function(input)
+            pcall(function()
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    dragging = false
+                end
+            end)
+        end)
+        
+        -- Auto-focus sur le champ de texte
+        wait(0.5)
+        KeyBox:CaptureFocus()
+    end)
+end
+
+-- Démarrer le script avec gestion d'erreurs
+pcall(function()
+    if keySystem then
+        createSimpleKeyUI()
+    else
+        loadScript()
+    end
+end)
