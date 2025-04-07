@@ -50,9 +50,9 @@ function loadScript()
 
     -- Structure des mondes et leurs limites de zones avec les coordonnées corrigées
     local worlds = {
-        {name = "Spawn World", minZone = 1, maxZone = 99, basePosition = Vector3.new(121.71, 16.54, -204.95), offsetX = 5, offsetZ = 3},
-        {name = "Tech World", minZone = 100, maxZone = 199, basePosition = Vector3.new(-9987.57, 16.5, -358.72), offsetX = 3, offsetZ = 0},
-        {name = "Void World", minZone = 200, maxZone = 239, basePosition = Vector3.new(-10266.83, 4.17, -7358.04), offsetX = 0, offsetZ = -3}
+        {name = "Spawn World", minZone = 1, maxZone = 99, basePosition = Vector3.new(121.71, 18.54, -204.95), offsetX = 5, offsetZ = 3},
+        {name = "Tech World", minZone = 100, maxZone = 199, basePosition = Vector3.new(-9987.57, 18.5, -358.72), offsetX = 3, offsetZ = 0},
+        {name = "Void World", minZone = 200, maxZone = 239, basePosition = Vector3.new(-10266.83, 6.17, -7358.04), offsetX = 0, offsetZ = -3}
     }
 
     -- Fonction pour déterminer le monde actuel
