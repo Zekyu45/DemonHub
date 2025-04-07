@@ -460,10 +460,65 @@ function createKeyUI()
     Title.TextColor3 = Color3.fromRGB(255, 255, 255)
     Title.TextSize = 18.000
     
-    KeyInput.Name = "KeyInput"
-    KeyInput.Parent = MainFrame
-    KeyInput.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-    KeyInput.BorderSizePixel = 1
-    KeyInput.BorderColor3 = Color3.fromRGB(0, 120, 215)
-    KeyInput.Position = UDim2.new(0.1, 0, 0.3, 0)
-    KeyInput.Size = UDim2.new(0.8, 0, 0, 4
+KeyInput.Name = "KeyInput"
+KeyInput.Parent = MainFrame
+KeyInput.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
+KeyInput.BorderSizePixel = 1
+KeyInput.BorderColor3 = Color3.fromRGB(0, 120, 215)
+KeyInput.Position = UDim2.new(0.1, 0, 0.3, 0)
+KeyInput.Size = UDim2.new(0.8, 0, 0, 40)
+KeyInput.Font = Enum.Font.Gotham
+KeyInput.PlaceholderText = "Entrez votre clé ici..."
+KeyInput.Text = ""
+KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+KeyInput.TextSize = 16.000
+
+SubmitButton.Name = "SubmitButton"
+SubmitButton.Parent = MainFrame
+SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+SubmitButton.BorderSizePixel = 0
+SubmitButton.Position = UDim2.new(0.25, 0, 0.6, 0)
+SubmitButton.Size = UDim2.new(0.5, 0, 0, 35)
+SubmitButton.Font = Enum.Font.GothamBold
+SubmitButton.Text = "Valider"
+SubmitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+SubmitButton.TextSize = 16.000
+
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Parent = MainFrame
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
+StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Text = "Entrez la clé: zekyu"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.TextSize = 14.000
+
+-- Fonction de vérification de clé
+local function checkKey()
+    if KeyInput.Text == correctKey then
+        StatusLabel.Text = "Clé valide! Chargement..."
+        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        wait(1)
+        KeyUI:Destroy()
+        loadScript()
+    else
+        StatusLabel.Text = "Clé invalide! Essayez 'zekyu'"
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    end
+end
+
+SubmitButton.MouseButton1Click:Connect(checkKey)
+KeyInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then checkKey() end
+end)
+
+return KeyUI
+end
+
+-- Démarrage avec système de clé
+if keySystem then
+    createKeyUI()
+else
+    loadScript()
+end
