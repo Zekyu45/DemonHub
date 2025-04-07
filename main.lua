@@ -652,5 +652,94 @@ end
             })
         end
     end)
+    -- Ajouter un bouton pour chaque monde avec téléportation sécurisée
+for i, world in ipairs(worlds) do
+    TeleportSection:NewButton(world.name, "Téléporte au " .. world.name, function()
+        -- Points de téléportation sécurisés pour chaque monde
+        local safePositions = {
+            [1] = Vector3.new(170, 130, 250), -- Spawn World
+            [2] = Vector3.new(4325, 130, 1850), -- Tech World
+            [3] = Vector3.new(3678, 130, 1340), -- Void World
+        }
+        
+        -- Téléporter à la position sécurisée du monde
+        local success = safelyTeleportTo(safePositions[i], 15)
+        
+        if success then
+            StarterGui:SetCore("SendNotification", {
+                Title = "Téléportation",
+                Text = "Téléporté à: " .. world.name,
+                Duration = 3
+            })
+        else
+            -- Réessayer avec une hauteur différente si la première tentative échoue
+            success = safelyTeleportTo(safePositions[i], 30)
+            
+            if success then
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Téléportation",
+                    Text = "Téléporté à: " .. world.name .. " (2e essai)",
+                    Duration = 3
+                })
+            else
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Téléportation",
+                    Text = "Erreur: Impossible de trouver un sol solide",
+                    Duration = 3
+                })
+            end
+        end
+    end)
+end
+
+-- Téléportation à des zones spécifiques
+TeleportSection:NewSection("Zones spécifiques")
+
+-- Ajouter des boutons pour des zones spécifiques dans chaque monde
+local specificZones = {
+    {world = "Spawn World", zone = 50, name = "Spawn Zone 50"},
+    {world = "Tech World", zone = 150, name = "Tech Zone 150"},
+    {world = "Void World", zone = 220, name = "Void Zone 220"}
+}
+
+for _, zoneInfo in ipairs(specificZones) do
+    TeleportSection:NewButton(zoneInfo.name, "Téléporte à " .. zoneInfo.name, function()
+        -- Trouver le monde correspondant
+        local worldData
+        for _, world in ipairs(worlds) do
+            if world.name == zoneInfo.world then
+                worldData = world
+                break
+            end
+        end
+        
+        if worldData then
+            -- Calculer la position de la zone spécifique
+            local offset = zoneInfo.zone - worldData.minZone + 1
+            local zonePosition = Vector3.new(
+                worldData.basePosition.X + (offset * worldData.offsetX),
+                worldData.basePosition.Y,
+                worldData.basePosition.Z + (offset * worldData.offsetZ)
+            )
+            
+            -- Téléporter à cette zone spécifique
+            local success = safelyTeleportTo(zonePosition, 15)
+            
+            if success then
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Téléportation",
+                    Text = "Téléporté à: " .. zoneInfo.name,
+                    Duration = 3
+                })
+            else
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Téléportation",
+                    Text = "Erreur: Impossible de trouver un sol solide",
+                    Duration = 3
+                })
+            end
+        end
+    end)
+end
                     
     
