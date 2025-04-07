@@ -1,123 +1,9 @@
--- Simple PS99 Script for Delta with draggable UI
--- Using Kavo UI with modifications for mobile
--- Au début du script, ajoutez ce code pour vérifier que le script s'exécute
-game:GetService("StarterGui"):SetCore("SendNotification", {
-    Title = "Vérification",
-    Text = "Script en cours de chargement...",
-    Duration = 5
-}}
--- Système de clé d'authentification
+-- Simple PS99 Script pour Delta avec UI amélioré et draggable
+-- Version simplifiée du système de clé
+
+-- Système de clé d'authentification (simplifié)
 local keySystem = true -- Activer/désactiver le système de clé
 local correctKey = "zekyu" -- La clé correcte
-
--- Fonction pour vérifier la clé
-local function checkKey(inputKey)
-    return inputKey == correctKey
-end
-
--- UI du système de clé
-local function createKeyUI()
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "KeySystem"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = game:GetService("CoreGui")
-    
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 300, 0, 150)
-    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -75)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Parent = ScreenGui
-    
-    local Title = Instance.new("TextLabel")
-    Title.Name = "Title"
-    Title.Size = UDim2.new(1, 0, 0, 40)
-    Title.Position = UDim2.new(0, 0, 0, 0)
-    Title.BackgroundColor3 = Color3.fromRGB(0, 85, 127)
-    Title.BorderSizePixel = 0
-    Title.Text = "PS99 Simple Mobile - Key System"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 18
-    Title.Font = Enum.Font.SourceSansBold
-    Title.Parent = MainFrame
-    
-    local KeyBox = Instance.new("TextBox")
-    KeyBox.Name = "KeyBox"
-    KeyBox.Size = UDim2.new(0.8, 0, 0, 30)
-    KeyBox.Position = UDim2.new(0.1, 0, 0.4, 0)
-    KeyBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    KeyBox.BorderColor3 = Color3.fromRGB(0, 170, 255)
-    KeyBox.BorderSizePixel = 2
-    KeyBox.Text = ""
-    KeyBox.PlaceholderText = "Entrez la clé..."
-    KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    KeyBox.TextSize = 16
-    KeyBox.Font = Enum.Font.SourceSans
-    KeyBox.Parent = MainFrame
-    
-    local SubmitButton = Instance.new("TextButton")
-    SubmitButton.Name = "SubmitButton"
-    SubmitButton.Size = UDim2.new(0.5, 0, 0, 30)
-    SubmitButton.Position = UDim2.new(0.25, 0, 0.7, 0)
-    SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-    SubmitButton.BorderSizePixel = 0
-    SubmitButton.Text = "Valider"
-    SubmitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SubmitButton.TextSize = 16
-    SubmitButton.Font = Enum.Font.SourceSansBold
-    SubmitButton.Parent = MainFrame
-    
-    local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Name = "StatusLabel"
-    StatusLabel.Size = UDim2.new(1, 0, 0, 20)
-    StatusLabel.Position = UDim2.new(0, 0, 0.9, 0)
-    StatusLabel.BackgroundTransparency = 1
-    StatusLabel.Text = ""
-    StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-    StatusLabel.TextSize = 14
-    StatusLabel.Font = Enum.Font.SourceSans
-    StatusLabel.Parent = MainFrame
-    
-    -- Vérification de la clé
-    local keySuccess = false
-    
-    SubmitButton.MouseButton1Click:Connect(function()
-        if checkKey(KeyBox.Text) then
-            StatusLabel.Text = "Clé valide! Chargement du script..."
-            StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-            keySuccess = true
-            wait(1)
-            ScreenGui:Destroy()
-            loadScript() -- Charge le script principal si la clé est correcte
-        else
-            StatusLabel.Text = "Clé invalide! Veuillez réessayer."
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-            KeyBox.Text = ""
-        end
-    end)
-    
-    -- Permettre d'utiliser Enter pour valider
-    KeyBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed and not keySuccess then
-            if checkKey(KeyBox.Text) then
-                StatusLabel.Text = "Clé valide! Chargement du script..."
-                StatusLabel.TextColor3 = Color3.fromRGB(100, 255, 100)
-                keySuccess = true
-                wait(1)
-                ScreenGui:Destroy()
-                loadScript() -- Charge le script principal si la clé est correcte
-            else
-                StatusLabel.Text = "Clé invalide! Veuillez réessayer."
-                StatusLabel.TextColor3 = Color3.fromRGB(255, 100, 100)
-                KeyBox.Text = ""
-            end
-        end
-    end)
-    
-    return keySuccess
-end
 
 -- Fonction principale pour charger le script
 function loadScript()
@@ -130,17 +16,14 @@ function loadScript()
     _G.autoFarm = false
     _G.uiMinimized = false
     _G.dragginUI = false
-    _G.bestZone = "Fantasy" -- Zone par défaut, à modifier selon votre meilleure zone
+    _G.bestZone = "Fantasy" -- Zone par défaut
 
     -- Fonction Anti-AFK simplifiée
     local Players = game:GetService("Players")
     local LocalPlayer = Players.LocalPlayer
-    local RunService = game:GetService("RunService")
-    local UserInputService = game:GetService("UserInputService")
-    local connections = {}
-
+    
     local function antiAfk()
-        connections.afk = LocalPlayer.Idled:Connect(function()
+        LocalPlayer.Idled:Connect(function()
             local VirtualUser = game:GetService("VirtualUser")
             VirtualUser:CaptureController()
             VirtualUser:ClickButton2(Vector2.new())
@@ -161,7 +44,6 @@ function loadScript()
         local nearest = nil
         local minDistance = math.huge
         
-        -- Chercher tous les breakables dans le workspace
         for _, v in pairs(workspace:GetDescendants()) do
             if v.Name == "Breakable" and v:IsA("Model") and v:FindFirstChild("Health") and v.Health.Value > 0 then
                 local distance = (hrp.Position - v.PrimaryPart.Position).magnitude
@@ -186,7 +68,7 @@ function loadScript()
         
         if zones[_G.bestZone] and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
             LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(zones[_G.bestZone])
-            wait(0.5) -- Attendre que la téléportation soit effectuée
+            wait(0.5)
         end
     end
 
@@ -198,15 +80,8 @@ function loadScript()
             while _G.autoTap and wait(0.1) do
                 local nearest = findNearestBreakable()
                 if nearest then
-                    -- Simuler un tap sur le breakable
                     game:GetService("ReplicatedStorage").Network:FireServer("Click", nearest)
-                    
-                    -- Méthode alternative si la première ne fonctionne pas
-                    pcall(function()
-                        game:GetService("ReplicatedStorage").Events.DamageBreakable:FireServer(nearest)
-                    end)
                 else
-                    -- Si aucun breakable trouvé, juste cliquer
                     game:GetService("ReplicatedStorage").Network:FireServer("Click")
                 end
             end
@@ -223,18 +98,15 @@ function loadScript()
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     local hrp = character.HumanoidRootPart
                     
-                    -- Chercher tous les types d'objets collectables
                     for _, container in pairs(workspace:GetChildren()) do
                         if container.Name == "Orbs" or container.Name == "Lootbags" or container.Name == "Drops" then
                             for _, item in pairs(container:GetChildren()) do
-                                if (item.Position - hrp.Position).Magnitude <= 50 then -- Collecter dans un rayon de 50 studs
+                                if (item.Position - hrp.Position).Magnitude <= 50 then
                                     pcall(function()
-                                        -- Méthode 1: TouchInterest
                                         firetouchinterest(hrp, item, 0)
                                         wait()
                                         firetouchinterest(hrp, item, 1)
                                         
-                                        -- Méthode 2: Collecte par réseau
                                         game:GetService("ReplicatedStorage").Network:FireServer("CollectOrb", item)
                                         game:GetService("ReplicatedStorage").Network:FireServer("CollectLootbag", item)
                                     end)
@@ -247,36 +119,25 @@ function loadScript()
         end)
     end)
 
-    -- Auto Farm amélioré - téléportation à la dernière zone et farm des breakables
+    -- Auto Farm amélioré
     MainSection:NewToggle("Auto Farm", "Farm automatiquement les breakables dans la meilleure zone", function(state)
         _G.autoFarm = state
         
         spawn(function()
             while _G.autoFarm and wait(0.5) do
-                -- Se téléporter à la meilleure zone
                 teleportToBestZone()
                 
                 local nearest = findNearestBreakable()
                 if nearest then
-                    -- Se téléporter près du breakable
                     local character = LocalPlayer.Character
                     if character and character:FindFirstChild("HumanoidRootPart") then
-                        -- Se téléporter à une petite distance du breakable pour éviter la détection
                         character.HumanoidRootPart.CFrame = nearest.PrimaryPart.CFrame * CFrame.new(0, 5, 0)
                         
-                        -- Faire attaquer le breakable par les pets
                         pcall(function()
                             game:GetService("ReplicatedStorage").Network:FireServer("PetAttack", nearest)
-                            -- Méthode alternative
-                            game:GetService("ReplicatedStorage").Events.PetAttack:FireServer(nearest)
-                        end)
-                        
-                        -- Taper aussi sur le breakable
-                        pcall(function()
                             game:GetService("ReplicatedStorage").Network:FireServer("Click", nearest)
                         end)
                         
-                        -- Attendre que le breakable soit cassé ou un délai maximum
                         local timeout = 0
                         while nearest and nearest:FindFirstChild("Health") and nearest.Health.Value > 0 and timeout < 10 and _G.autoFarm do
                             wait(0.5)
@@ -284,7 +145,6 @@ function loadScript()
                         end
                     end
                 else
-                    -- Si aucun breakable trouvé, explorer la zone
                     local randomOffset = Vector3.new(math.random(-30, 30), 0, math.random(-30, 30))
                     if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
                         LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(LocalPlayer.Character.HumanoidRootPart.Position + randomOffset)
@@ -325,21 +185,16 @@ function loadScript()
 
     -- Boost FPS
     PerformanceSection:NewButton("Boost FPS", "Améliore les performances", function()
-        -- Désactiver les effets
         for _, v in pairs(game:GetService("Lighting"):GetChildren()) do
             if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("ColorCorrectionEffect") then
                 v.Enabled = false
             end
         end
         
-        -- Réduire la qualité
         settings().Rendering.QualityLevel = 1
-        
-        -- Autres optimisations
         game:GetService("Lighting").GlobalShadows = false
         game:GetService("Lighting").FogEnd = 9e9
         
-        -- Réduire la distance de rendu
         settings().Rendering.QualityLevel = "Level01"
         for _, v in pairs(workspace:GetDescendants()) do
             if v:IsA("Part") or v:IsA("UnionOperation") or v:IsA("MeshPart") then
@@ -356,58 +211,32 @@ function loadScript()
         end
     end)
 
-    -- Créer le GUI pour le déplacement et le bouton de minimisation
+    -- Système de contrôle mobile
+    local UserInputService = game:GetService("UserInputService")
+    
+    -- Créer le GUI pour les contrôles mobiles
     local ScreenGui = Instance.new("ScreenGui")
     ScreenGui.Name = "PS99MobileControls"
     ScreenGui.ResetOnSpawn = false
     ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     ScreenGui.Parent = game:GetService("CoreGui")
 
-    -- Créer le bouton P (minimisé)
-    local PButton = Instance.new("TextButton")
-    PButton.Name = "PButton"
-    PButton.Size = UDim2.new(0, 40, 0, 40)
-    PButton.Position = UDim2.new(0.05, 0, 0.5, 0)
-    PButton.BackgroundColor3 = Color3.fromRGB(0, 85, 127)
-    PButton.BorderSizePixel = 2
-    PButton.BorderColor3 = Color3.fromRGB(0, 170, 255)
-    PButton.Text = "P"
-    PButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    PButton.TextScaled = true
-    PButton.Font = Enum.Font.SourceSansBold
-    PButton.Visible = false
-    PButton.Parent = ScreenGui
-
-    -- Créer le handle de déplacement
-    local MoveHandle = Instance.new("TextButton")
-    MoveHandle.Name = "MoveHandle"
-    MoveHandle.Size = UDim2.new(0, 30, 0, 30)
-    MoveHandle.Position = UDim2.new(0, 0, 0, 0)
-    MoveHandle.BackgroundColor3 = Color3.fromRGB(0, 170, 127)
-    MoveHandle.BorderSizePixel = 0
-    MoveHandle.Text = "≡"
-    MoveHandle.TextColor3 = Color3.fromRGB(255, 255, 255)
-    MoveHandle.TextScaled = true
-    MoveHandle.Font = Enum.Font.SourceSansBold
-    MoveHandle.ZIndex = 10
-    MoveHandle.Parent = ScreenGui
-
-    -- Créer le bouton de fermeture X
-    local CloseButton = Instance.new("TextButton")
-    CloseButton.Name = "CloseButton"
-    CloseButton.Size = UDim2.new(0, 30, 0, 30)
-    CloseButton.Position = UDim2.new(1, -30, 0, 0)
-    CloseButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
-    CloseButton.BorderSizePixel = 0
-    CloseButton.Text = "X"
-    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CloseButton.TextScaled = true
-    CloseButton.Font = Enum.Font.SourceSansBold
-    CloseButton.ZIndex = 10
-
-    -- Modifier le Kavo UI pour ajouter nos contrôles personnalisés
-    local function setupCustomControls()
-        -- Identifier le conteneur principal du Kavo UI
+    -- Créer le bouton pour minimiser/maximiser
+    local toggleButton = Instance.new("TextButton")
+    toggleButton.Name = "ToggleButton"
+    toggleButton.Size = UDim2.new(0, 50, 0, 50)
+    toggleButton.Position = UDim2.new(0.05, 0, 0.5, 0)
+    toggleButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    toggleButton.BorderSizePixel = 2
+    toggleButton.Text = "PS99"
+    toggleButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    toggleButton.TextScaled = true
+    toggleButton.Font = Enum.Font.SourceSansBold
+    toggleButton.Parent = ScreenGui
+    
+    -- Attendre que Kavo UI soit chargé
+    spawn(function()
+        wait(1)
         local kavoUI = nil
         for _, v in pairs(game:GetService("CoreGui"):GetChildren()) do
             if v:IsA("ScreenGui") and v:FindFirstChild("Main") then
@@ -418,69 +247,203 @@ function loadScript()
         
         if kavoUI and kavoUI:FindFirstChild("Main") then
             local mainFrame = kavoUI.Main
+            local originalPosition = mainFrame.Position
+            local isMinimized = false
             
-            -- Ajouter le bouton de fermeture au frame principal
-            CloseButton.Parent = mainFrame
+            -- Fonction pour basculer l'UI
+            toggleButton.MouseButton1Click:Connect(function()
+                isMinimized = not isMinimized
+                mainFrame.Visible = not isMinimized
+            end)
             
-            -- Déplacer le handle à la position du mainFrame
-            MoveHandle.Position = UDim2.new(0, mainFrame.AbsolutePosition.X, 0, mainFrame.AbsolutePosition.Y)
+            -- Rendre l'UI déplaçable pour mobile
+            local isDragging = false
+            local dragStart = nil
+            local startPos = nil
             
-            -- Position initiale du UI
-            local uiPos = mainFrame.Position
-            
-            -- Fonction pour minimiser/maximiser l'UI
-            local function toggleUI()
-                _G.uiMinimized = not _G.uiMinimized
-                
-                if _G.uiMinimized then
-                    -- Sauvegarder la position actuelle
-                    uiPos = mainFrame.Position
-                    
-                    -- Cacher le Kavo UI
-                    mainFrame.Visible = false
-                    MoveHandle.Visible = false
-                    
-                    -- Montrer le bouton P
-                    PButton.Visible = true
-                else
-                    -- Restaurer le Kavo UI
-                    mainFrame.Position = uiPos
-                    mainFrame.Visible = true
-                    MoveHandle.Visible = true
-                    
-                    -- Cacher le bouton P
-                    PButton.Visible = false
-                end
-            end
-            
-            -- Gérer le clic sur le bouton X
-            CloseButton.MouseButton1Click:Connect(toggleUI)
-            
-            -- Gérer le clic sur le bouton P
-            PButton.MouseButton1Click:Connect(toggleUI)
-            
-            -- Rendre le UI déplaçable
-            local dragging = false
-            local dragInput
-            local dragStart
-            local startPos
-            
-            local function updateInput(input)
-                local delta = input.Position - dragStart
-                local newPosition = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-                
-                -- Mettre à jour la position du frame principal
-                mainFrame.Position = newPosition
-                
-                -- Mettre à jour la position du handle
-                MoveHandle.Position = UDim2.new(0, mainFrame.AbsolutePosition.X, 0, mainFrame.AbsolutePosition.Y)
-            end
-            
-            MoveHandle.InputBegan:Connect(function(input)
-                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                    dragging = true
+            toggleButton.InputBegan:Connect(function(input)
+                if (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) and not isDragging then
+                    isDragging = true
                     dragStart = input.Position
-                    startPos = mainFrame.Position
-                    
-                    input.Changed:Connect(function()
-                        if input.UserIn
+                    startPos = toggleButton.Position
+                end
+            end)
+            
+            toggleButton.InputChanged:Connect(function(input)
+                if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and isDragging then
+                    local delta = input.Position - dragStart
+                    toggleButton.Position = UDim2.new(
+                        startPos.X.Scale, 
+                        startPos.X.Offset + delta.X,
+                        startPos.Y.Scale, 
+                        startPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+            
+            toggleButton.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    isDragging = false
+                end
+            end)
+            
+            -- Rendre le mainFrame déplaçable aussi
+            local draggingMain = false
+            local mainDragStart = nil
+            local mainStartPos = nil
+            
+            mainFrame.InputBegan:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingMain = true
+                    mainDragStart = input.Position
+                    mainStartPos = mainFrame.Position
+                end
+            end)
+            
+            UserInputService.InputChanged:Connect(function(input)
+                if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and draggingMain then
+                    local delta = input.Position - mainDragStart
+                    mainFrame.Position = UDim2.new(
+                        mainStartPos.X.Scale, 
+                        mainStartPos.X.Offset + delta.X,
+                        mainStartPos.Y.Scale, 
+                        mainStartPos.Y.Offset + delta.Y
+                    )
+                end
+            end)
+            
+            UserInputService.InputEnded:Connect(function(input)
+                if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+                    draggingMain = false
+                end
+            end)
+        end
+    end)
+end
+
+-- Fonction simplifiée pour le système de clé
+local function createSimpleKeyUI()
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "SimpleKeySystem"
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    ScreenGui.Parent = game:GetService("CoreGui")
+    
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Size = UDim2.new(0, 250, 0, 120)
+    MainFrame.Position = UDim2.new(0.5, -125, 0.5, -60)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Parent = ScreenGui
+    
+    local Title = Instance.new("TextLabel")
+    Title.Name = "Title"
+    Title.Size = UDim2.new(1, 0, 0, 30)
+    Title.Position = UDim2.new(0, 0, 0, 0)
+    Title.BackgroundColor3 = Color3.fromRGB(0, 85, 127)
+    Title.BorderSizePixel = 0
+    Title.Text = "PS99 Mobile - Clé"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 18
+    Title.Font = Enum.Font.SourceSansBold
+    Title.Parent = MainFrame
+    
+    local KeyBox = Instance.new("TextBox")
+    KeyBox.Name = "KeyBox"
+    KeyBox.Size = UDim2.new(0.8, 0, 0, 30)
+    KeyBox.Position = UDim2.new(0.1, 0, 0.35, 0)
+    KeyBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    KeyBox.BorderColor3 = Color3.fromRGB(0, 170, 255)
+    KeyBox.BorderSizePixel = 2
+    KeyBox.Text = ""
+    KeyBox.PlaceholderText = "Entrez la clé..."
+    KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+    KeyBox.TextSize = 16
+    KeyBox.Font = Enum.Font.SourceSans
+    KeyBox.Parent = MainFrame
+    
+    local LoginButton = Instance.new("TextButton")
+    LoginButton.Name = "LoginButton"
+    LoginButton.Size = UDim2.new(0.8, 0, 0, 30)
+    LoginButton.Position = UDim2.new(0.1, 0, 0.7, 0)
+    LoginButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    LoginButton.BorderSizePixel = 0
+    LoginButton.Text = "Connexion"
+    LoginButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    LoginButton.TextSize = 16
+    LoginButton.Font = Enum.Font.SourceSansBold
+    LoginButton.Parent = MainFrame
+    
+    -- Vérification de la clé
+    LoginButton.MouseButton1Click:Connect(function()
+        if KeyBox.Text == correctKey then
+            ScreenGui:Destroy()
+            loadScript()
+        else
+            KeyBox.Text = ""
+            KeyBox.PlaceholderText = "Clé incorrecte!"
+            KeyBox.PlaceholderColor3 = Color3.fromRGB(255, 100, 100)
+            wait(1)
+            KeyBox.PlaceholderText = "Entrez la clé..."
+            KeyBox.PlaceholderColor3 = Color3.fromRGB(178, 178, 178)
+        end
+    end)
+    
+    -- Permettre d'utiliser Enter pour se connecter
+    KeyBox.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            if KeyBox.Text == correctKey then
+                ScreenGui:Destroy()
+                loadScript()
+            else
+                KeyBox.Text = ""
+                KeyBox.PlaceholderText = "Clé incorrecte!"
+                KeyBox.PlaceholderColor3 = Color3.fromRGB(255, 100, 100)
+                wait(1)
+                KeyBox.PlaceholderText = "Entrez la clé..."
+                KeyBox.PlaceholderColor3 = Color3.fromRGB(178, 178, 178)
+            end
+        end
+    end)
+    
+    -- Rendre l'interface déplaçable pour mobile
+    local UserInputService = game:GetService("UserInputService")
+    local dragging = false
+    local dragInput
+    local dragStart
+    local startPos
+    
+    Title.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(
+                startPos.X.Scale, 
+                startPos.X.Offset + delta.X,
+                startPos.Y.Scale, 
+                startPos.Y.Offset + delta.Y
+            )
+        end
+    end)
+    
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+        end
+    end)
+end
+
+-- Démarrer le script
+if keySystem then
+    createSimpleKeyUI()
+else
+    loadScript()
+end
