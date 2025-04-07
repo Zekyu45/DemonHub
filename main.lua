@@ -1,5 +1,5 @@
--- Simple PS99 Script pour Delta avec UI amélioré et draggable
--- Version simplifiée du système de clé
+-- Script PS99 optimisé pour Delta avec UI amélioré et draggable
+-- Version 2.0 avec système de clé et performance optimisée
 
 -- Système de clé d'authentification (simplifié)
 local keySystem = true -- Activer/désactiver le système de clé
@@ -7,26 +7,46 @@ local correctKey = "zekyu" -- La clé correcte
 
 -- Fonction principale pour charger le script
 function loadScript()
-    local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+    -- Vérification et chargement de la bibliothèque UI
+    local success, Library = pcall(function()
+        return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+    end)
+    
+    if not success then
+        warn("Erreur lors du chargement de la bibliothèque UI. Réessai dans 3 secondes...")
+        wait(3)
+        return loadScript()
+    end
+    
     local Window = Library.CreateLib("PS99 Simple Mobile", "Ocean")
 
-    -- Valeurs
+    -- Valeurs globales
     _G.autoTap = false
     _G.autoCollect = false
     _G.autoFarm = false
     _G.uiMinimized = false
     _G.dragginUI = false
-
-    -- Fonction Anti-AFK simplifiée
+    
+    -- Services
     local Players = game:GetService("Players")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local StarterGui = game:GetService("StarterGui")
+    local UserInputService = game:GetService("UserInputService")
     local LocalPlayer = Players.LocalPlayer
     
+    -- Fonction Anti-AFK améliorée
     local function antiAfk()
+        local VirtualUser = game:GetService("VirtualUser")
         LocalPlayer.Idled:Connect(function()
-            local VirtualUser = game:GetService("VirtualUser")
             VirtualUser:CaptureController()
             VirtualUser:ClickButton2(Vector2.new())
+            StarterGui:SetCore("SendNotification", {
+                Title = "Anti-AFK",
+                Text = "Anti-AFK activé",
+                Duration = 3
+            })
         end)
+        print("Anti-AFK activé avec succès")
     end
     antiAfk()
 
@@ -43,12 +63,33 @@ function loadScript()
         local nearest = nil
         local minDistance = math.huge
         
-        for _, v in pairs(workspace:GetDescendants()) do
-            if v.Name == "Breakable" and v:IsA("Model") and v:FindFirstChild("Health") and v.Health.Value > 0 then
-                local distance = (hrp.Position - v.PrimaryPart.Position).magnitude
-                if distance < minDistance then
-                    minDistance = distance
-                    nearest = v
+        -- Optimisation: chercher uniquement dans les modèles qui contiennent des breakables
+        local containers = {"Breakables", "Breakable", "Zone"}
+        
+        for _, containerName in ipairs(containers) do
+            local container = workspace:FindFirstChild(containerName)
+            if container then
+                for _, v in pairs(container:GetDescendants()) do
+                    if v.Name == "Breakable" and v:IsA("Model") and v:FindFirstChild("Health") and v.Health.Value > 0 and v:FindFirstChild("PrimaryPart") then
+                        local distance = (hrp.Position - v.PrimaryPart.Position).magnitude
+                        if distance < minDistance and distance < 100 then
+                            minDistance = distance
+                            nearest = v
+                        end
+                    end
+                end
+            end
+        end
+        
+        -- Si rien n'a été trouvé dans les conteneurs spécifiques, rechercher dans tout l'espace de travail
+        if not nearest then
+            for _, v in pairs(workspace:GetDescendants()) do
+                if v.Name == "Breakable" and v:IsA("Model") and v:FindFirstChild("Health") and v.Health.Value > 0 and v:FindFirstChild("PrimaryPart") then
+                    local distance = (hrp.Position - v.PrimaryPart.Position).magnitude
+                    if distance < minDistance and distance < 100 then
+                        minDistance = distance
+                        nearest = v
+                    end
                 end
             end
         end
@@ -56,14 +97,16 @@ function loadScript()
         return nearest
     end
 
-    -- Fonction pour trouver la meilleure zone DANS LE MONDE ACTUEL
+    -- Fonction pour trouver la meilleure zone DANS LE MONDE ACTUEL (améliorée)
     local function getBestZoneInCurrentWorld()
         local character = LocalPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+        if not character or not character:FindFirstChild("HumanoidRootPart") then 
+            return "Unknown", Vector3.new(0, 100, 0) 
+        end
         
         local hrp = character.HumanoidRootPart
         local currentPosition = hrp.Position
-        local playerStats = LocalPlayer:WaitForChild("PlayerGui"):FindFirstChild("Main")
+        local playerStats = LocalPlayer:WaitForChild("PlayerGui", 5):FindFirstChild("Main")
         local highestUnlockedZone = 1
         
         -- Essayer de trouver la zone la plus élevée débloquée par le joueur
@@ -77,6 +120,7 @@ function loadScript()
             end
         end
         
+        -- Détermination du monde actuel et des coordonnées de la zone appropriée
         -- Coordonnées des zones dans le Spawn World (zone 1-25)
         if currentPosition.X < 1000 then
             -- Retourner les coordonnées de la zone la plus élevée débloquée dans ce monde
@@ -105,30 +149,41 @@ function loadScript()
             return "Void Zone "..(zoneOffset + 75), Vector3.new(3678, 130, 1340 - (zoneOffset * 3))
         else
             -- Si on ne peut pas déterminer le monde, on reste sur place
-            return "Unknown", hrp.Position + Vector3.new(0, 5, 0)
+            return "Zone actuelle", hrp.Position + Vector3.new(0, 5, 0)
         end
     end
-    -- Auto Tap amélioré
+
+    -- Auto Tap amélioré avec protection contre les erreurs
     MainSection:NewToggle("Auto Tap", "Tape automatiquement sur les breakables", function(state)
         _G.autoTap = state
         
         spawn(function()
-            while _G.autoTap and wait(0.05) do  -- Réduit le délai pour un clic plus rapide
+            while _G.autoTap do
+                wait(0.05)  -- Délai optimisé
+                
+                -- Protection contre la déconnexion
+                if not game:GetService("Players").LocalPlayer then
+                    _G.autoTap = false
+                    break
+                end
+                
                 local nearest = findNearestBreakable()
                 if nearest then
-                    -- Cliquer directement sur le breakable
-                    game:GetService("ReplicatedStorage").Network:FireServer("Click", nearest)
-                    
-                    -- Essayer d'attaquer avec les pets aussi
+                    -- Utiliser pcall pour éviter les erreurs
                     pcall(function()
-                        game:GetService("ReplicatedStorage").Network:FireServer("PetAttack", nearest)
+                        -- Cliquer directement sur le breakable
+                        ReplicatedStorage.Network:FireServer("Click", nearest)
+                        -- Essayer d'attaquer avec les pets aussi
+                        ReplicatedStorage.Network:FireServer("PetAttack", nearest)
                     end)
                 else
                     -- Cliquer au hasard pour essayer d'atteindre quelque chose
-                    game:GetService("ReplicatedStorage").Network:FireServer("Click")
+                    pcall(function()
+                        ReplicatedStorage.Network:FireServer("Click")
+                    end)
                 end
                 
-                -- Essayer de collecter les objets pendant le tap
+                -- Collecter automatiquement pendant le tap
                 local character = LocalPlayer.Character
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     local hrp = character.HumanoidRootPart
@@ -142,8 +197,13 @@ function loadScript()
                                         wait()
                                         firetouchinterest(hrp, item, 1)
                                         
-                                        game:GetService("ReplicatedStorage").Network:FireServer("CollectOrb", item)
-                                        game:GetService("ReplicatedStorage").Network:FireServer("CollectLootbag", item)
+                                        if container.Name == "Orbs" then
+                                            ReplicatedStorage.Network:FireServer("CollectOrb", item)
+                                        elseif container.Name == "Lootbags" then
+                                            ReplicatedStorage.Network:FireServer("CollectLootbag", item)
+                                        elseif container.Name == "Drops" then
+                                            ReplicatedStorage.Network:FireServer("Collect", item)
+                                        end
                                     end)
                                 end
                             end
@@ -154,12 +214,20 @@ function loadScript()
         end)
     end)
 
-    -- Auto Collect amélioré
+    -- Auto Collect amélioré avec optimisations et protection
     MainSection:NewToggle("Auto Collect", "Collecte automatiquement tous les objets dans la zone", function(state)
         _G.autoCollect = state
         
         spawn(function()
-            while _G.autoCollect and wait(0.1) do  -- Réduit le délai pour une collecte plus rapide
+            while _G.autoCollect do
+                wait(0.1)  -- Délai optimisé
+                
+                -- Protection contre la déconnexion
+                if not game:GetService("Players").LocalPlayer then
+                    _G.autoCollect = false
+                    break
+                end
+                
                 local character = LocalPlayer.Character
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     local hrp = character.HumanoidRootPart
@@ -171,7 +239,7 @@ function loadScript()
                         local container = workspace:FindFirstChild(containerName)
                         if container then
                             for _, item in pairs(container:GetChildren()) do
-                                if (item.Position - hrp.Position).Magnitude <= 40 then  -- Augmente la portée
+                                if (item.Position - hrp.Position).Magnitude <= 40 then  -- Portée optimisée
                                     pcall(function()
                                         -- Essayer les deux méthodes de collecte
                                         firetouchinterest(hrp, item, 0)
@@ -180,11 +248,11 @@ function loadScript()
                                         
                                         -- Essayer plusieurs méthodes de collecte selon le type d'objet
                                         if containerName == "Orbs" then
-                                            game:GetService("ReplicatedStorage").Network:FireServer("CollectOrb", item)
+                                            ReplicatedStorage.Network:FireServer("CollectOrb", item)
                                         elseif containerName == "Lootbags" then
-                                            game:GetService("ReplicatedStorage").Network:FireServer("CollectLootbag", item)
+                                            ReplicatedStorage.Network:FireServer("CollectLootbag", item)
                                         elseif containerName == "Drops" or containerName == "Coins" then
-                                            game:GetService("ReplicatedStorage").Network:FireServer("Collect", item)
+                                            ReplicatedStorage.Network:FireServer("Collect", item)
                                         end
                                     end)
                                 end
@@ -194,141 +262,290 @@ function loadScript()
                     
                     -- Déplacer légèrement pour ramasser les objets à proximité
                     if _G.autoCollect and not _G.autoFarm then  -- Ne pas interférer avec autoFarm
-                        local randomOffset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
-                        character.HumanoidRootPart.CFrame = CFrame.new(character.HumanoidRootPart.Position + randomOffset)
+                        pcall(function()
+                            local randomOffset = Vector3.new(math.random(-5, 5), 0, math.random(-5, 5))
+                            character.HumanoidRootPart.CFrame = CFrame.new(character.HumanoidRootPart.Position + randomOffset)
+                        end)
                     end
                 end
             end
         end)
     end)
 
-    -- Auto Farm amélioré pour rester dans le monde actuel et ne pas voler
+    -- Auto Farm optimisé et sécurisé
     MainSection:NewToggle("Auto Farm", "Farm automatiquement les breakables dans la zone actuelle", function(state)
         _G.autoFarm = state
         
         spawn(function()
-            while _G.autoFarm and wait(0.5) do
+            while _G.autoFarm do
+                wait(0.5)
+                
+                -- Protection contre la déconnexion
+                if not game:GetService("Players").LocalPlayer then
+                    _G.autoFarm = false
+                    break
+                end
+                
                 -- Obtenir la meilleure zone DANS le monde actuel
                 local zoneName, zonePosition = getBestZoneInCurrentWorld()
                 
                 -- Téléporter à la position de sécurité dans le monde actuel
                 local character = LocalPlayer.Character
                 if character and character:FindFirstChild("HumanoidRootPart") and character:FindFirstChild("Humanoid") then
-                    -- Téléporter juste au-dessus de la zone
-                    local safePosition = Vector3.new(zonePosition.X, zonePosition.Y + 5, zonePosition.Z)
-                    character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
-                    
-                    -- Attendre que le personnage atteigne le sol
-                    local landed = false
-                    local startTime = tick()
-                    
-                    -- Assurer que le personnage ne tombe pas dans le vide
-                    while not landed and tick() - startTime < 5 and _G.autoFarm do
-                        wait(0.1)
-                        -- Si le personnage est sur le sol ou si on détecte une plateforme proche
-                        if character:FindFirstChild("Humanoid") and character.Humanoid:GetState() == Enum.HumanoidStateType.Landed then
-                            landed = true
-                        end
-                        
-                        -- Vérifier si on est proche du sol
-                        local rayParams = RaycastParams.new()
-                        rayParams.FilterType = Enum.RaycastFilterType.Exclude
-                        rayParams.FilterDescendantsInstances = {character}
-                        
-                        local rayResult = workspace:Raycast(character.HumanoidRootPart.Position, Vector3.new(0, -10, 0), rayParams)
-                        if rayResult and rayResult.Instance then
-                            landed = true
-                            -- Positionner au centre de la zone
-                            local finalPosition = Vector3.new(zonePosition.X, rayResult.Position.Y + 2, zonePosition.Z)
-                            character.HumanoidRootPart.CFrame = CFrame.new(finalPosition)
-                        end
-                    end
-                    
-                    -- Si après 5 secondes on n'a pas atteint le sol, repositionner sur la zone
-                    if not landed then
-                        character.HumanoidRootPart.CFrame = CFrame.new(zonePosition)
-                    end
-                    
-                    wait(0.5) -- Stabilisation
-                    
-                    -- Désactiver le vol si un script de vol est actif
                     pcall(function()
+                        -- Téléporter juste au-dessus de la zone
+                        local safePosition = Vector3.new(zonePosition.X, zonePosition.Y + 5, zonePosition.Z)
+                        character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+                        
+                        -- Attendre que le personnage atteigne le sol
+                        local landed = false
+                        local startTime = tick()
+                        
+                        -- Assurer que le personnage ne tombe pas dans le vide
+                        while not landed and tick() - startTime < 5 and _G.autoFarm do
+                            wait(0.1)
+                            -- Si le personnage est sur le sol ou si on détecte une plateforme proche
+                            if character:FindFirstChild("Humanoid") and character.Humanoid:GetState() == Enum.HumanoidStateType.Landed then
+                                landed = true
+                            end
+                            
+                            -- Vérifier si on est proche du sol
+                            local rayParams = RaycastParams.new()
+                            rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                            rayParams.FilterDescendantsInstances = {character}
+                            
+                            local rayResult = workspace:Raycast(character.HumanoidRootPart.Position, Vector3.new(0, -10, 0), rayParams)
+                            if rayResult and rayResult.Instance then
+                                landed = true
+                                -- Positionner au centre de la zone
+                                local finalPosition = Vector3.new(zonePosition.X, rayResult.Position.Y + 2, zonePosition.Z)
+                                character.HumanoidRootPart.CFrame = CFrame.new(finalPosition)
+                            end
+                        end
+                        
+                        -- Si après 5 secondes on n'a pas atteint le sol, repositionner sur la zone
+                        if not landed then
+                            character.HumanoidRootPart.CFrame = CFrame.new(zonePosition)
+                        end
+                        
+                        wait(0.5) -- Stabilisation
+                        
+                        -- Désactiver le vol si un script de vol est actif
                         character.Humanoid.PlatformStand = false
                         character.Humanoid:ChangeState(Enum.HumanoidStateType.Landed)
                         
                         -- Forcer le personnage à être plus proche du sol
                         local rayResult = workspace:Raycast(character.HumanoidRootPart.Position, Vector3.new(0, -20, 0), rayParams)
                         if rayResult and rayResult.Instance then
-                            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(character.HumanoidRootPart.Position.X, rayResult.Position.Y + 2, character.HumanoidRootPart.Position.Z))
+                            character.HumanoidRootPart.CFrame = CFrame.new(Vector3.new(
+                                character.HumanoidRootPart.Position.X, 
+                                rayResult.Position.Y + 2, 
+                                character.HumanoidRootPart.Position.Z
+                            ))
+                        end
+                        
+                        -- Commencer à farmer les breakables
+                        local nearest = findNearestBreakable()
+                        if nearest then
+                            -- Se téléporter près du breakable mais pas exactement dessus
+                            character.HumanoidRootPart.CFrame = nearest.PrimaryPart.CFrame * CFrame.new(0, 3, 2)
+                            
+                            ReplicatedStorage.Network:FireServer("PetAttack", nearest)
+                            ReplicatedStorage.Network:FireServer("Click", nearest)
+                            
+                            local timeout = 0
+                            while nearest and nearest:FindFirstChild("Health") and nearest.Health.Value > 0 and timeout < 10 and _G.autoFarm do
+                                ReplicatedStorage.Network:FireServer("Click", nearest)
+                                wait(0.2)
+                                timeout = timeout + 0.2
+                            end
+                        else
+                            -- Si aucun breakable n'est trouvé, explorer un peu la zone
+                            local randomOffset = Vector3.new(math.random(-20, 20), 0, math.random(-20, 20))
+                            if character and character:FindFirstChild("HumanoidRootPart") then
+                                character.HumanoidRootPart.CFrame = CFrame.new(
+                                    character.HumanoidRootPart.Position + Vector3.new(randomOffset.X, 0, randomOffset.Z)
+                                )
+                            end
                         end
                     end)
-                    
-                    -- Commencer à farmer les breakables
-                    local nearest = findNearestBreakable()
-                    if nearest then
-                        -- Se téléporter près du breakable mais pas exactement dessus
-                        character.HumanoidRootPart.CFrame = nearest.PrimaryPart.CFrame * CFrame.new(0, 3, 2)
-                        
-                        pcall(function()
-                            game:GetService("ReplicatedStorage").Network:FireServer("PetAttack", nearest)
-                            game:GetService("ReplicatedStorage").Network:FireServer("Click", nearest)
-                        end)
-                        
-                        local timeout = 0
-                        while nearest and nearest:FindFirstChild("Health") and nearest.Health.Value > 0 and timeout < 10 and _G.autoFarm do
-                            game:GetService("ReplicatedStorage").Network:FireServer("Click", nearest)
-                            wait(0.2)
-                            timeout = timeout + 0.2
-                        end
-                    else
-                        -- Si aucun breakable n'est trouvé, explorer un peu la zone
-                        local randomOffset = Vector3.new(math.random(-20, 20), 0, math.random(-20, 20))
-                        if character and character:FindFirstChild("HumanoidRootPart") then
-                            character.HumanoidRootPart.CFrame = CFrame.new(character.HumanoidRootPart.Position + Vector3.new(randomOffset.X, 0, randomOffset.Z))
-                        end
-                    end
                 end
             end
         end)
     end)
-    -- Tab Téléportation
-    local TeleportTab = Window:NewTab("Téléportation")
-    local TeleportSection = TeleportTab:NewSection("Zones")
+-- Tab Téléportation
+local TeleportTab = Window:NewTab("Téléportation")
+local TeleportSection = TeleportTab:NewSection("Zones")
 
-    -- Téléportation dans le monde actuel seulement
-    TeleportSection:NewButton("Meilleure zone du monde actuel", "Téléporte à la meilleure zone dans le monde actuel", function()
-        local zoneName, zonePosition = getBestZoneInCurrentWorld()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+-- Téléportation dans le monde actuel seulement
+TeleportSection:NewButton("Meilleure zone du monde actuel", "Téléporte à la meilleure zone dans le monde actuel", function()
+    local zoneName, zonePosition = getBestZoneInCurrentWorld()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
             -- S'assurer d'utiliser une hauteur sécuritaire
             local safePosition = Vector3.new(zonePosition.X, zonePosition.Y + 10, zonePosition.Z)
             LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
             
             -- Afficher un message pour informer l'utilisateur
-            game:GetService("StarterGui"):SetCore("SendNotification", {
+            StarterGui:SetCore("SendNotification", {
                 Title = "Téléportation",
                 Text = "Téléporté à: " .. zoneName,
                 Duration = 3
             })
-        end
-    end)
+        end)
+    end
+end)
 
-    -- Téléportation aléatoire sécuritaire
-    TeleportSection:NewButton("Zone aléatoire sécuritaire", "Téléporte à un endroit aléatoire sécuritaire", function()
-        if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+-- Téléportation aléatoire sécuritaire
+TeleportSection:NewButton("Zone aléatoire sécuritaire", "Téléporte à un endroit aléatoire sécuritaire", function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
             local currentPos = LocalPlayer.Character.HumanoidRootPart.Position
             local randomOffset = Vector3.new(math.random(-50, 50), 0, math.random(-50, 50))
             -- Ajouter une hauteur sécuritaire
             local safePosition = Vector3.new(currentPos.X + randomOffset.X, currentPos.Y + 10, currentPos.Z + randomOffset.Z)
             LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Téléportation",
+                Text = "Téléporté à une zone aléatoire",
+                Duration = 3
+            })
+        end)
+    end
+end)
+
+-- Ajout d'un bouton pour se téléporter au spawn
+TeleportSection:NewButton("Téléporter au Spawn", "Retourne à la zone de départ", function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            -- Coordonnées du spawn (ajustez selon le jeu)
+            local spawnPosition = Vector3.new(170, 130, 250)
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(spawnPosition)
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Téléportation",
+                Text = "Téléporté au Spawn",
+                Duration = 3
+            })
+        end)
+    end
+end)
+
+-- Téléportation aux autres mondes
+local WorldSection = TeleportTab:NewSection("Mondes")
+
+-- Monde Fantaisie
+WorldSection:NewButton("Monde Fantaisie", "Téléporte au monde Fantaisie", function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            local fantasyPosition = Vector3.new(3057, 130, 2130)
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(fantasyPosition)
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Téléportation",
+                Text = "Téléporté au Monde Fantaisie",
+                Duration = 3
+            })
+        end)
+    end
+end)
+
+-- Monde Tech
+WorldSection:NewButton("Monde Tech", "Téléporte au monde Tech", function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            local techPosition = Vector3.new(4325, 130, 1850)
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(techPosition)
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Téléportation",
+                Text = "Téléporté au Monde Tech",
+                Duration = 3
+            })
+        end)
+    end
+end)
+
+-- Monde Void
+WorldSection:NewButton("Monde Void", "Téléporte au monde Void", function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            local voidPosition = Vector3.new(3678, 130, 1340)
+            LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(voidPosition)
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Téléportation",
+                Text = "Téléporté au Monde Void",
+                Duration = 3
+            })
+        end)
+    end
+end)
+
+-- Système anti-chute
+local SafetySection = TeleportTab:NewSection("Sécurité")
+
+-- Sauvetage en cas de chute
+SafetySection:NewButton("Anti-Void", "Te sauve si tu tombes dans le vide", function()
+    if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        pcall(function()
+            local currentPos = LocalPlayer.Character.HumanoidRootPart.Position
+            -- Si on est en train de tomber, repositionner à une hauteur sécuritaire
+            if currentPos.Y < -50 then
+                local safePosition = Vector3.new(currentPos.X, 130, currentPos.Z)
+                LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+                
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Sécurité",
+                    Text = "Sauvé du vide!",
+                    Duration = 3
+                })
+            else
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Sécurité",
+                    Text = "Vous n'êtes pas en train de tomber",
+                    Duration = 3
+                })
+            end
+        end)
+    end
+end)
+
+-- Activation anti-void automatique
+local autoAntiVoid = false
+SafetySection:NewToggle("Auto Anti-Void", "Sauve automatiquement en cas de chute", function(state)
+    autoAntiVoid = state
+    
+    spawn(function()
+        while autoAntiVoid do
+            wait(0.5)
+            if LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                local currentPos = LocalPlayer.Character.HumanoidRootPart.Position
+                if currentPos.Y < -50 then
+                    pcall(function()
+                        local safePosition = Vector3.new(currentPos.X, 130, currentPos.Z)
+                        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+                        
+                        StarterGui:SetCore("SendNotification", {
+                            Title = "Sécurité",
+                            Text = "Sauvé du vide automatiquement!",
+                            Duration = 2
+                        })
+                    end)
+                end
+            end
         end
     end)
+end)
 
-    -- Tab Performance
-    local PerformanceTab = Window:NewTab("Performance")
-    local PerformanceSection = PerformanceTab:NewSection("Améliorer FPS")
+-- Tab Performance
+local PerformanceTab = Window:NewTab("Performance")
+local PerformanceSection = PerformanceTab:NewSection("Améliorer FPS")
 
-    -- Boost FPS
-    PerformanceSection:NewButton("Boost FPS", "Améliore les performances", function()
+-- Boost FPS
+PerformanceSection:NewButton("Boost FPS", "Améliore les performances", function()
+    pcall(function()
         for _, v in pairs(game:GetService("Lighting"):GetChildren()) do
             if v:IsA("BlurEffect") or v:IsA("SunRaysEffect") or v:IsA("BloomEffect") or v:IsA("ColorCorrectionEffect") then
                 v.Enabled = false
@@ -355,15 +572,17 @@ function loadScript()
         end
         
         -- Message de confirmation
-        game:GetService("StarterGui"):SetCore("SendNotification", {
+        StarterGui:SetCore("SendNotification", {
             Title = "Performance",
             Text = "FPS boostés avec succès!",
             Duration = 3
         })
     end)
-    
-    -- Ajout d'un bouton pour supprimer les textures
-    PerformanceSection:NewButton("Supprimer Textures", "Supprime les textures pour augmenter les FPS", function()
+end)
+
+-- Ajout d'un bouton pour supprimer les textures
+PerformanceSection:NewButton("Supprimer Textures", "Supprime les textures pour augmenter les FPS", function()
+    pcall(function()
         for _, v in pairs(workspace:GetDescendants()) do
             if v:IsA("Decal") or v:IsA("Texture") then
                 v.Transparency = 1
@@ -373,135 +592,58 @@ function loadScript()
             end
         end
         
-        game:GetService("StarterGui"):SetCore("SendNotification", {
+        StarterGui:SetCore("SendNotification", {
             Title = "Performance",
             Text = "Textures supprimées!",
             Duration = 3
         })
     end)
-    -- Fonction simplifiée pour le système de clé
-local function createSimpleKeyUI()
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "SimpleKeySystem"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    ScreenGui.Parent = game.Players.LocalPlayer:WaitForChild("PlayerGui")
-    
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 250, 0, 120)
-    MainFrame.Position = UDim2.new(0.5, -125, 0.5, -60)
-    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Visible = true
-    MainFrame.Parent = ScreenGui
-    
-    local Title = Instance.new("TextLabel")
-    Title.Name = "Title"
-    Title.Size = UDim2.new(1, 0, 0, 30)
-    Title.Position = UDim2.new(0, 0, 0, 0)
-    Title.BackgroundColor3 = Color3.fromRGB(0, 85, 127)
-    Title.BorderSizePixel = 0
-    Title.Text = "PS99 Mobile - Clé"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 18
-    Title.Font = Enum.Font.SourceSansBold
-    Title.Parent = MainFrame
-    
-    local KeyBox = Instance.new("TextBox")
-    KeyBox.Name = "KeyBox"
-    KeyBox.Size = UDim2.new(0.8, 0, 0, 30)
-    KeyBox.Position = UDim2.new(0.1, 0, 0.35, 0)
-    KeyBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
-    KeyBox.BorderColor3 = Color3.fromRGB(0, 170, 255)
-    KeyBox.BorderSizePixel = 2
-    KeyBox.Text = ""
-    KeyBox.PlaceholderText = "Entrez la clé..."
-    KeyBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-    KeyBox.TextSize = 16
-    KeyBox.Font = Enum.Font.SourceSans
-    KeyBox.Parent = MainFrame
-    
-    local LoginButton = Instance.new("TextButton")
-    LoginButton.Name = "LoginButton"
-    LoginButton.Size = UDim2.new(0.8, 0, 0, 30)
-    LoginButton.Position = UDim2.new(0.1, 0, 0.7, 0)
-    LoginButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-    LoginButton.BorderSizePixel = 0
-    LoginButton.Text = "Connexion"
-    LoginButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    LoginButton.TextSize = 16
-    LoginButton.Font = Enum.Font.SourceSansBold
-    LoginButton.Parent = MainFrame
-    
-    -- Vérification de la clé
-    LoginButton.MouseButton1Click:Connect(function()
-        if KeyBox.Text == correctKey then
-            ScreenGui:Destroy()
-            loadScript()
-        else
-            KeyBox.Text = ""
-            KeyBox.PlaceholderText = "Clé incorrecte!"
-            KeyBox.PlaceholderColor3 = Color3.fromRGB(255, 100, 100)
-            wait(1)
-            KeyBox.PlaceholderText = "Entrez la clé..."
-            KeyBox.PlaceholderColor3 = Color3.fromRGB(178, 178, 178)
+end)
+
+-- Optimiser la mémoire
+PerformanceSection:NewButton("Nettoyer Mémoire", "Libère la mémoire pour plus de fluidité", function()
+    pcall(function()
+        for i = 1, 10 do
+            game:GetService("RunService").RenderStepped:Wait()
         end
-    end)
-    
-    -- Permettre d'utiliser Enter pour se connecter
-    KeyBox.FocusLost:Connect(function(enterPressed)
-        if enterPressed then
-            if KeyBox.Text == correctKey then
-                ScreenGui:Destroy()
-                loadScript()
-            else
-                KeyBox.Text = ""
-                KeyBox.PlaceholderText = "Clé incorrecte!"
-                KeyBox.PlaceholderColor3 = Color3.fromRGB(255, 100, 100)
-                wait(1)
-                KeyBox.PlaceholderText = "Entrez la clé..."
-                KeyBox.PlaceholderColor3 = Color3.fromRGB(178, 178, 178)
-            end
+        
+        game:GetService("Debris"):AddItem(script, 0)
+        game:GetService("TweenService"):GetTweens()
+        
+        for i = 1, 5 do
+            wait()
+            collectgarbage("collect")
         end
+        
+        StarterGui:SetCore("SendNotification", {
+            Title = "Performance",
+            Text = "Mémoire nettoyée avec succès!",
+            Duration = 3
+        })
     end)
-    
-    -- Rendre l'interface déplaçable pour mobile
-    local UserInputService = game:GetService("UserInputService")
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
-    
-    Title.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = MainFrame.Position
-        end
+end)
+
+-- Tab Info Supplémentaire
+local InfoTab = Window:NewTab("Info")
+local InfoSection = InfoTab:NewSection("Informations")
+
+InfoSection:NewLabel("Version: 2.0")
+InfoSection:NewLabel("Mobile Optimisé: Oui")
+InfoSection:NewLabel("Clé: "..correctKey)
+
+-- Ajouter un crédit
+InfoSection:NewLabel("Scripté par zekyu")
+
+-- Bouton pour copier le Discord
+InfoSection:NewButton("Copier Discord", "Copie le lien Discord", function()
+    pcall(function()
+        setclipboard("discord.gg/zekyu")
+        
+        StarterGui:SetCore("SendNotification", {
+            Title = "Info",
+            Text = "Discord copié dans le presse-papier!",
+            Duration = 3
+        })
     end)
+end)
     
-    UserInputService.InputChanged:Connect(function(input)
-        if (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) and dragging then
-            local delta = input.Position - dragStart
-            MainFrame.Position = UDim2.new(
-                startPos.X.Scale, 
-                startPos.X.Offset + delta.X,
-                startPos.Y.Scale, 
-                startPos.Y.Offset + delta.Y
-            )
-        end
-    end)
-    
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-end
--- Démarrer le script
-if keySystem then
-    createSimpleKeyUI()
-else
-    loadScript()
-    end
