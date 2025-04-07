@@ -395,3 +395,72 @@ function loadScript()
             end
         end
     end
+-- Configuration de l'interface défilante pour le Tab Event
+    local function setupScrollingFrame(parent)
+        local scrollFrame = Instance.new("ScrollingFrame")
+        scrollFrame.Name = "ScrollFrame"
+        scrollFrame.Parent = parent
+        scrollFrame.BackgroundTransparency = 1
+        scrollFrame.Size = UDim2.new(1, 0, 1, 0)
+        scrollFrame.CanvasSize = UDim2.new(0, 0, 2, 0)  -- 2x la hauteur pour permettre le défilement
+        scrollFrame.ScrollBarThickness = 4
+        scrollFrame.ScrollBarImageColor3 = Color3.fromRGB(0, 120, 215)
+        scrollFrame.ScrollingEnabled = true
+        return scrollFrame
+    end
+
+    -- Fonction Auto Collect
+    local function performAutoCollect()
+        while _G.autoCollect do
+            if not game:GetService("Players").LocalPlayer then
+                _G.autoCollect = false
+                break
+            end
+            
+            collectNearbyItems(_G.farmRadius)
+            wait(0.1)
+        end
+    end
+
+    -- Auto Tap
+    MainSection:NewToggle("Auto Tap", "Tape automatiquement sur les breakables", function(state)
+        _G.autoTap = state
+        
+        if state then
+            spawn(function()
+                while _G.autoTap do
+                    if not game:GetService("Players").LocalPlayer then break end
+                    
+                    local nearest = findNearestBreakable()
+                    if nearest then
+                        pcall(function()
+                            local character = LocalPlayer.Character
+                            if character and character:FindFirstChild("HumanoidRootPart") then
+                                local hrp = character.HumanoidRootPart
+                                local breakablePart = nearest:FindFirstChild("PrimaryPart") or nearest:FindFirstChildWhichIsA("Part")
+                                
+                                if breakablePart and (hrp.Position - breakablePart.Position).magnitude > 15 then
+                                    -- Téléportation améliorée vers le breakable
+                                    hrp.CFrame = CFrame.new(breakablePart.Position + Vector3.new(0, 5, 0))
+                                end
+                                
+                                ReplicatedStorage.Network:FireServer("PetAttack", nearest)
+                                ReplicatedStorage.Network:FireServer("Click", nearest)
+                            end
+                        end)
+                    else
+                        pcall(function() ReplicatedStorage.Network:FireServer("Click") end)
+                    end
+                    
+                    if _G.autoTap then collectNearbyItems(25) end
+                    wait(0.05)
+                end
+            end)
+        end
+    end)
+
+    -- Auto Collect
+    MainSection:NewToggle("Auto Collect", "Collecte automatiquement tous les objets", function(state)
+        _G.autoCollect = state
+        if state then spawn(performAutoCollect) end
+    end)
