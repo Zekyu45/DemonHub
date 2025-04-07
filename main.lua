@@ -1,6 +1,11 @@
 -- Simple PS99 Script for Delta with draggable UI
 -- Using Kavo UI with modifications for mobile
-
+-- Au début du script, ajoutez ce code pour vérifier que le script s'exécute
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "Vérification",
+    Text = "Script en cours de chargement...",
+    Duration = 5
+}}
 -- Système de clé d'authentification
 local keySystem = true -- Activer/désactiver le système de clé
 local correctKey = "zekyu" -- La clé correcte
