@@ -10,9 +10,9 @@ function loadScript()
     -- Chargement de la bibliothèque UI avec méthode fiable pour mobile
     local Library
     
-    -- Utiliser un pcall pour éviter les erreurs et utiliser une source alternative si nécessaire
+    -- Utiliser un pcall pour éviter les erreurs et utiliser une source directe et fiable
     local success, result = pcall(function()
-        return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
+        return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua", true))()
     end)
     
     if success then
@@ -21,17 +21,29 @@ function loadScript()
         -- Message d'erreur et nouvelle tentative avec une URL de secours
         warn("Erreur lors du chargement de la bibliothèque UI. Tentative avec source alternative...")
         
-        -- Utiliser une source alternative connue pour fonctionner sur mobile
+        -- Utiliser une source alternative plus stable pour les appareils mobiles
         success, result = pcall(function()
-            return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/obfuscated/source.lua"))()
+            return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/obfuscated/source.lua", true))()
         end)
         
         if success then
             Library = result
         else
+            -- Dernière tentative avec une solution de repli locale
             warn("Échec du chargement de l'interface. Nouvelle tentative dans 3 secondes...")
             wait(3)
-            return loadScript()
+            
+            -- Dernière tentative avec une troisième source
+            success, result = pcall(function()
+                return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/master/source.lua", true))()
+            end)
+            
+            if success then
+                Library = result
+            else
+                warn("Échec définitif du chargement de l'interface.")
+                return false
+            end
         end
     end
     
@@ -51,21 +63,25 @@ function loadScript()
     local RunService = game:GetService("RunService")
     
     -- Afficher un message de débogage
-    StarterGui:SetCore("SendNotification", {
-        Title = "Débogage",
-        Text = "Chargement de l'interface en cours...",
-        Duration = 3
-    })
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "Débogage",
+            Text = "Chargement de l'interface en cours...",
+            Duration = 3
+        })
+    end)
     
     -- Créer l'interface avec un thème compatible mobile
     local Window = Library.CreateLib("PS99 Mobile Pro", "Ocean")
     
     -- Afficher un message de confirmation après la création de l'interface
-    StarterGui:SetCore("SendNotification", {
-        Title = "UI Status",
-        Text = "Interface créée avec succès!",
-        Duration = 3
-    })
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "UI Status",
+            Text = "Interface créée avec succès!",
+            Duration = 3
+        })
+    end)
     
     -- Fonction Anti-AFK
     local function antiAfk()
@@ -110,16 +126,17 @@ function loadScript()
         
         return true
     end
-
-    -- Fonction de téléportation améliorée
+-- Fonction de téléportation améliorée
     local function teleportTo(position)
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then 
-            StarterGui:SetCore("SendNotification", {
-                Title = "Erreur",
-                Text = "Personnage non trouvé",
-                Duration = 3
-            })
+            pcall(function()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Erreur",
+                    Text = "Personnage non trouvé",
+                    Duration = 3
+                })
+            end)
             return false 
         end
         
@@ -129,11 +146,13 @@ function loadScript()
         -- Téléportation en deux étapes
         character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
         
-        StarterGui:SetCore("SendNotification", {
-            Title = "Téléportation",
-            Text = "Attente du chargement...",
-            Duration = 3
-        })
+        pcall(function()
+            StarterGui:SetCore("SendNotification", {
+                Title = "Téléportation",
+                Text = "Attente du chargement...",
+                Duration = 3
+            })
+        end)
         
         -- Attendre que la zone soit chargée (max 8 secondes)
         local loaded = waitForAreaLoad(position, 8)
@@ -141,18 +160,22 @@ function loadScript()
             character.HumanoidRootPart.CFrame = CFrame.new(position)
             character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
             
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Zone chargée avec succès",
-                Duration = 2
-            })
+            pcall(function()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Téléportation",
+                    Text = "Zone chargée avec succès",
+                    Duration = 2
+                })
+            end)
             return true
         else
-            StarterGui:SetCore("SendNotification", {
-                Title = "Avertissement",
-                Text = "Chargement incomplet, tentative de stabilisation",
-                Duration = 3
-            })
+            pcall(function()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Avertissement",
+                    Text = "Chargement incomplet, tentative de stabilisation",
+                    Duration = 3
+                })
+            end)
             
             character.HumanoidRootPart.CFrame = CFrame.new(position)
             character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
@@ -189,11 +212,13 @@ function loadScript()
                     local position = character.HumanoidRootPart.Position
                     
                     if position.Y < -50 then
-                        StarterGui:SetCore("SendNotification", {
-                            Title = "Protection anti-vide",
-                            Text = "Détection de chute, téléportation...",
-                            Duration = 3
-                        })
+                        pcall(function()
+                            StarterGui:SetCore("SendNotification", {
+                                Title = "Protection anti-vide",
+                                Text = "Détection de chute, téléportation...",
+                                Duration = 3
+                            })
+                        end)
                         
                         -- Téléporter au portail d'événement avec une hauteur plus importante
                         local safePosition = Vector3.new(portalPosition.X, portalPosition.Y + 10, portalPosition.Z)
@@ -208,7 +233,8 @@ function loadScript()
     end
     
     setupVoidDetection()
--- Tab Téléportation
+    
+    -- Tab Téléportation
     local TeleportTab = Window:NewTab("Téléportation")
     local TeleportSection = TeleportTab:NewSection("Zones")
 
@@ -295,32 +321,38 @@ function loadScript()
             if ReplicatedStorage:FindFirstChild("RemoteEvents") then
                 if ReplicatedStorage.RemoteEvents:FindFirstChild("EquipBest") then
                     ReplicatedStorage.RemoteEvents.EquipBest:FireServer()
-                    StarterGui:SetCore("SendNotification", {
-                        Title = "Pets",
-                        Text = "Équipement des meilleurs pets...",
-                        Duration = 2
-                    })
+                    pcall(function()
+                        StarterGui:SetCore("SendNotification", {
+                            Title = "Pets",
+                            Text = "Équipement des meilleurs pets...",
+                            Duration = 2
+                        })
+                    end)
                 end
                 
                 wait(1)
                 
                 if ReplicatedStorage.RemoteEvents:FindFirstChild("SetSpeed") then
                     ReplicatedStorage.RemoteEvents.SetSpeed:FireServer(999999)
-                    StarterGui:SetCore("SendNotification", {
-                        Title = "Pets",
-                        Text = "Vitesse infinie activée pour les pets",
-                        Duration = 2
-                    })
+                    pcall(function()
+                        StarterGui:SetCore("SendNotification", {
+                            Title = "Pets",
+                            Text = "Vitesse infinie activée pour les pets",
+                            Duration = 2
+                        })
+                    end)
                 end
             end
         end)
         
         if not success then
-            StarterGui:SetCore("SendNotification", {
-                Title = "Erreur Pets",
-                Text = "Impossible d'équiper les pets: " .. tostring(err):sub(1, 50),
-                Duration = 3
-            })
+            pcall(function()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Erreur Pets",
+                    Text = "Impossible d'équiper les pets: " .. tostring(err):sub(1, 50),
+                    Duration = 3
+                })
+            end)
         end
     end
     
@@ -366,21 +398,25 @@ function loadScript()
         if state then
             local character = LocalPlayer.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then 
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Auto TP Event",
-                    Text = "Personnage non trouvé",
-                    Duration = 3
-                })
+                pcall(function()
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Auto TP Event",
+                        Text = "Personnage non trouvé",
+                        Duration = 3
+                    })
+                end)
                 return 
             end
             
             -- Téléporter uniquement au portail d'événement
             teleportTo(portalPosition)
-            StarterGui:SetCore("SendNotification", {
-                Title = "Auto TP Event",
-                Text = "Téléporté au portail de l'événement",
-                Duration = 3
-            })
+            pcall(function()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto TP Event",
+                    Text = "Téléporté au portail de l'événement",
+                    Duration = 3
+                })
+            end)
         end
     end)
     
@@ -390,13 +426,15 @@ function loadScript()
         if state then
             local character = LocalPlayer.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Auto TP Breakables",
-                    Text = "Personnage non trouvé",
-                    Duration = 3
-                })
+                pcall(function()
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Auto TP Breakables",
+                        Text = "Personnage non trouvé",
+                        Duration = 3
+                    })
+                end)
                 return
-            }
+            end
                 
             -- Équiper tous les pets avec infinite speed
             equipAllPetsInfiniteSpeed()
@@ -404,20 +442,24 @@ function loadScript()
             -- Trouver le centre de l'événement et commencer à cibler les breakables
             teleportToCenterOfEvent()
             
-            StarterGui:SetCore("SendNotification", {
-                Title = "Auto TP Breakables",
-                Text = "Recherche et ciblage des breakables activés",
-                Duration = 3
-            })
+            pcall(function()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto TP Breakables",
+                    Text = "Recherche et ciblage des breakables activés",
+                    Duration = 3
+                })
+            end)
             
             -- Démarrer le ciblage automatique des breakables
             targetBreakables()
         else
-            StarterGui:SetCore("SendNotification", {
-                Title = "Auto TP Breakables",
-                Text = "Auto TP Breakables désactivé",
-                Duration = 3
-            })
+            pcall(function()
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto TP Breakables",
+                    Text = "Auto TP Breakables désactivé",
+                    Duration = 3
+                })
+            end)
         end
     end)
 
@@ -431,11 +473,13 @@ function loadScript()
     end)
 
     -- Afficher message de bienvenue
-    StarterGui:SetCore("SendNotification", {
-        Title = "PS99 Mobile Pro",
-        Text = "Script modifié chargé avec succès!",
-        Duration = 5
-    })
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = "PS99 Mobile Pro",
+            Text = "Script modifié chargé avec succès!",
+            Duration = 5
+        })
+    end)
 
     return true
 end
@@ -532,11 +576,13 @@ function createKeyUI()
     StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     StatusLabel.TextSize = 14
     
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "Interface de clé",
-        Text = "Interface de clé chargée",
-        Duration = 3
-    })
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Interface de clé",
+            Text = "Interface de clé chargée",
+            Duration = 3
+        })
+    end)
     
     -- Fonction de vérification de clé
     local function checkKey()
@@ -544,11 +590,13 @@ function createKeyUI()
             StatusLabel.Text = "Clé valide! Chargement..."
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
             
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "Validation de clé",
-                Text = "Clé correcte, chargement du script...",
-                Duration = 3
-            })
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "Validation de clé",
+                    Text = "Clé correcte, chargement du script...",
+                    Duration = 3
+                })
+            end)
             
             wait(1)
             KeyUI:Destroy()
@@ -557,11 +605,13 @@ function createKeyUI()
             StatusLabel.Text = "Clé invalide!"
             StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
             
-            game:GetService("StarterGui"):SetCore("SendNotification", {
-                Title = "Erreur",
-                Text = "Clé invalide!",
-                Duration = 3
-            })
+            pcall(function()
+                game:GetService("StarterGui"):SetCore("SendNotification", {
+                    Title = "Erreur",
+                    Text = "Clé invalide!",
+                    Duration = 3
+                })
+            end)
         end
     end
     
@@ -581,11 +631,13 @@ if keySystem then
                     not game:GetService("UserInputService").KeyboardEnabled
     
     -- Notification de démarrage
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "PS99 Mobile Pro",
-        Text = isMobile and "Mode mobile détecté" or "Mode PC détecté",
-        Duration = 3
-    })
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "PS99 Mobile Pro",
+            Text = isMobile and "Mode mobile détecté" or "Mode PC détecté",
+            Duration = 3
+        })
+    end)
     
     -- Créer l'interface de clé
     createKeyUI()
