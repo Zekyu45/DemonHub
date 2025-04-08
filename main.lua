@@ -175,8 +175,7 @@ function loadScript()
         local distance = (character.HumanoidRootPart.Position - position).Magnitude
         return distance <= tolerance
     end
-    
-    -- Fonction optimisée pour vérifier si le joueur est dans la zone d'événement
+-- Fonction optimisée pour vérifier si le joueur est dans la zone d'événement
     local function checkIfInEventArea()
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
@@ -242,7 +241,8 @@ function loadScript()
     end
     
     setupVoidDetection()
--- Tab Téléportation
+    
+    -- Tab Téléportation
     local TeleportTab = Window:NewTab("Téléportation")
     local TeleportSection = TeleportTab:NewSection("Zones")
 
@@ -357,10 +357,13 @@ function loadScript()
             teleportTo(eventCenterPosition)
             wait(1)
             inEventArea = checkIfInEventArea()
-        }
+        end
         
         return inEventArea
     end
+    
+    -- Correction de la variable pour stocker la coroutine
+    local autoTpBreakablesCoroutine
     
     -- Fonction pour cibler et casser les breakables (optimisée et corrigée)
     local function targetBreakables()
@@ -455,6 +458,9 @@ function loadScript()
         coroutine.resume(autoTpBreakablesCoroutine)
     end
     
+    -- Correction de la variable pour stocker la coroutine
+    local autoTpEventCoroutine
+    
     -- Auto Téléport à l'événement CORRIGÉ
     EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement au portail de l'événement", function(state)
         autoTpEventActive = state
@@ -462,7 +468,7 @@ function loadScript()
         -- Annuler toute coroutine précédente
         if autoTpEventCoroutine then
             pcall(function() coroutine.close(autoTpEventCoroutine) end)
-        }
+        end
         
         if state then
             -- Créer une nouvelle coroutine pour éviter les boucles infinies
@@ -522,7 +528,7 @@ function loadScript()
             -- Si pas dans la zone d'événement, s'y téléporter d'abord
             if not inEventArea then
                 teleportToEventArea()
-            }
+            end
             
             -- Démarrer le ciblage automatique des breakables (dans toutes les zones)
             targetBreakables()
@@ -664,11 +670,11 @@ end
 
 -- Démarrage avec système de clé
 if keySystem then
-    -- Vérifier si le joueur est sur mobile
-    local isMobile = game:GetService("UserInputService").TouchEnabled and 
+
+    local isMobile = game:GetService("UserInputService").TouchedEnabled and
                     not game:GetService("UserInputService").KeyboardEnabled
-    
-    -- Créer l'interface de clé
+
+
     createKeyUI()
 else
     loadScript()
