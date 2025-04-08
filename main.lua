@@ -2,7 +2,7 @@
 -- Version avec système de secours si l'UI ne charge pas
 
 -- Variables principales
-local correctKey = "zekyu"
+local correctKey = "zekyu"  -- La clé est "zekyu"
 local autoTpEventActive = false
 local showNotifications = true
 local hasBeenTeleported = false
@@ -119,7 +119,6 @@ local function createBackupMainUI()
     local UICorner = Instance.new("UICorner")
     UICorner.CornerRadius = UDim.new(0, 10)
     UICorner.Parent = mainFrame
-    
     -- Titre de l'application
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
@@ -503,10 +502,11 @@ local function createKeyUI()
         validateCorner.CornerRadius = UDim.new(0, 8)
         validateCorner.Parent = validateButton
         
-        -- Fonction pour valider la clé
+        -- Fonction pour valider la clé (CORRIGÉE)
         validateButton.MouseButton1Click:Connect(function()
-            local enteredKey = keyInput.Text
+            local enteredKey = keyInput.Text:gsub("%s+", "") -- Supprime les espaces indésirables
             
+            -- Vérification directe avec la clé correcte
             if enteredKey == correctKey then
                 -- Animation de succès
                 validateButton.BackgroundColor3 = Color3.fromRGB(70, 180, 70)
@@ -520,21 +520,14 @@ local function createKeyUI()
                 keyGui:Destroy()
                 
                 -- Charger l'interface principale
-                local success, errorMsg = pcall(createMainInterface)
-                if not success then
-                    warn("Erreur lors du chargement de l'interface principale:", errorMsg)
-                    notify("Erreur", "Impossible de charger l'interface principale", 3)
-                    wait(1)
-                    useBackupUI = true
-                    createBackupMainUI() -- Utiliser l'interface de secours en cas d'erreur
-                end
+                createMainInterface()
             else
                 -- Animation d'échec
                 validateButton.BackgroundColor3 = Color3.fromRGB(180, 70, 70)
                 validateButton.Text = "CLÉ INVALIDE!"
                 
-                -- Notification d'échec
-                notify("Erreur", "Clé invalide! Veuillez réessayer.", 2)
+                -- Afficher la clé fournie pour le débogage
+                notify("Erreur", string.format("Clé invalide: '%s'. La clé est 'zekyu'", enteredKey), 3)
                 
                 -- Effet de secousse
                 local originalPosition = mainFrame.Position
@@ -595,14 +588,7 @@ local function createKeyUI()
                 Rayfield:Destroy() -- Fermer cette fenêtre
                 
                 -- Charger l'interface principale
-                local success, errorMsg = pcall(createMainInterface)
-                if not success then
-                    warn("Erreur lors du chargement de l'interface principale:", errorMsg)
-                    notify("Erreur", "Impossible de charger l'interface principale", 3)
-                    wait(1)
-                    useBackupUI = true
-                    createBackupMainUI() -- Utiliser l'interface de secours en cas d'erreur
-                end
+                createMainInterface()
             end)
         else
             -- Si la création de la fenêtre échoue, revenir à l'interface de secours
