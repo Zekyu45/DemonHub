@@ -7,10 +7,8 @@ local correctKey = "zekyu"
 -- Fonction principale pour charger le script
 function loadScript()
     -- Variables principales
-    local Library
-    local Window
     local autoTpEventActive = false
-    local showNotifications = false
+    local showNotifications = true -- Activé par défaut pour voir les notifications
     local autoTpEventCoroutine
     
     -- Services
@@ -35,9 +33,8 @@ function loadScript()
     
     -- Chargement de la bibliothèque UI avec gestion d'erreur
     local function loadUILibrary()
-        local source = "https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"
         local success, result = pcall(function()
-            return loadstring(game:HttpGet(source, true))()
+            return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/main/source.lua"))()
         end)
         
         if success and result then
@@ -45,7 +42,20 @@ function loadScript()
             return result
         end
         
+        warn("Échec du chargement de l'interface, nouvelle tentative avec une source alternative...")
+        
+        -- Tentative avec une source alternative
+        success, result = pcall(function()
+            return loadstring(game:HttpGet("https://raw.githubusercontent.com/GreenDeno/Venyx-UI-Library/main/source.lua"))()
+        end)
+        
+        if success and result then
+            notify("UI", "Interface alternative chargée avec succès", 2)
+            return result
+        end
+        
         notify("ERREUR", "Échec du chargement de l'interface", 2)
+        warn("Échec du chargement de toutes les bibliothèques UI")
         return nil
     end
     
@@ -79,6 +89,7 @@ function loadScript()
     local function teleportTo(position)
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then 
+            notify("Erreur", "Impossible de téléporter - personnage non trouvé", 2)
             return false 
         end
         
@@ -95,86 +106,95 @@ function loadScript()
     end
 
     -- Début du script principal
-    Library = loadUILibrary()
+    notify("Chargement", "Chargement de l'interface en cours...", 2)
+    
+    local Library = loadUILibrary()
     if not Library then
-        notify("ERREUR", "Impossible de charger l'interface!", 5)
+        notify("ERREUR CRITIQUE", "Impossible de charger l'interface! Vérifiez votre connexion internet.", 5)
         return false
     end
     
     -- Création de l'interface
-    Window = Library:CreateLib("PS99 Mobile Pro", "Ocean")
+    local Window
     
-    -- Créer la fonction anti-AFK qui peut être activée/désactivée
-    local toggleAfk = antiAfk()
-    
-    -- Tab principal
-    local MainTab = Window:NewTab("Principal")
-    local MainSection = MainTab:NewSection("Fonctionnalités")
-    
-    -- Toggle Anti-AFK
-    MainSection:NewToggle("Anti-AFK", "Empêche d'être déconnecté pour inactivité", function(state)
-        toggleAfk(state)
-    end)
-    
-    -- Tab Événements
-    local EventTab = Window:NewTab("Événements")
-    local EventSection = EventTab:NewSection("Événements actuels")
-    
-    -- Auto Téléport à l'événement
-    EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement au portail de l'événement", function(state)
-        autoTpEventActive = state
+    -- Essayer de créer la fenêtre avec différentes méthodes selon la bibliothèque
+    pcall(function()
+        -- Pour Kavo UI
+        Window = Library:CreateLib("PS99 Mobile Pro", "Ocean")
         
-        -- Arrêter la coroutine si elle existe
-        if autoTpEventCoroutine then
-            pcall(function() 
-                coroutine.close(autoTpEventCoroutine)
-                autoTpEventCoroutine = nil
-            end)
-        end
+        -- Créer la fonction anti-AFK qui peut être activée/désactivée
+        local toggleAfk = antiAfk()
         
-        -- Démarrer une nouvelle coroutine si activé
-        if state then
-            autoTpEventCoroutine = coroutine.create(function()
-                while autoTpEventActive do
-                    local character = LocalPlayer.Character
-                    if character and character:FindFirstChild("HumanoidRootPart") then
-                        -- Éviter les téléportations trop fréquentes
-                        local currentTime = tick()
-                        if currentTime - lastPortalTpTime >= portalTpCooldown then
-                            teleportTo(portalPosition)
-                            lastPortalTpTime = currentTime
-                            notify("Event", "Téléportation au portail d'événement", 2)
-                        end
-                    end
-                    wait(1)
-                end
-            end)
+        -- Tab principal
+        local MainTab = Window:NewTab("Principal")
+        local MainSection = MainTab:NewSection("Fonctionnalités")
+        
+        -- Toggle Anti-AFK
+        MainSection:NewToggle("Anti-AFK", "Empêche d'être déconnecté pour inactivité", function(state)
+            toggleAfk(state)
+        end)
+        
+        -- Tab Événements
+        local EventTab = Window:NewTab("Événements")
+        local EventSection = EventTab:NewSection("Événements actuels")
+        
+        -- Auto Téléport à l'événement
+        EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement au portail de l'événement", function(state)
+            autoTpEventActive = state
             
-            -- Démarrer la coroutine
-            coroutine.resume(autoTpEventCoroutine)
-            notify("Event", "Auto TP Event activé", 2)
-        else
-            notify("Event", "Auto TP Event désactivé", 2)
-        end
-    end)
+            -- Arrêter la coroutine si elle existe
+            if autoTpEventCoroutine then
+                pcall(function() 
+                    coroutine.close(autoTpEventCoroutine)
+                    autoTpEventCoroutine = nil
+                end)
+            end
+            
+            -- Démarrer une nouvelle coroutine si activé
+            if state then
+                autoTpEventCoroutine = coroutine.create(function()
+                    while autoTpEventActive do
+                        local character = LocalPlayer.Character
+                        if character and character:FindFirstChild("HumanoidRootPart") then
+                            -- Éviter les téléportations trop fréquentes
+                            local currentTime = tick()
+                            if currentTime - lastPortalTpTime >= portalTpCooldown then
+                                teleportTo(portalPosition)
+                                lastPortalTpTime = currentTime
+                                notify("Event", "Téléportation au portail d'événement", 2)
+                            end
+                        end
+                        wait(1)
+                    end
+                end)
+                
+                -- Démarrer la coroutine
+                coroutine.resume(autoTpEventCoroutine)
+                notify("Event", "Auto TP Event activé", 2)
+            else
+                notify("Event", "Auto TP Event désactivé", 2)
+            end
+        end)
 
-    -- Tab Options
-    local OptionsTab = Window:NewTab("Options")
-    local OptionsSection = OptionsTab:NewSection("Paramètres")
-    
-    -- Option pour activer/désactiver les notifications
-    OptionsSection:NewToggle("Notifications", "Activer/désactiver les notifications", function(state)
-        showNotifications = state
-        if state then
-            notify("Notifications", "Notifications activées", 2)
-        end
+        -- Tab Options
+        local OptionsTab = Window:NewTab("Options")
+        local OptionsSection = OptionsTab:NewSection("Paramètres")
+        
+        -- Option pour activer/désactiver les notifications
+        OptionsSection:NewToggle("Notifications", "Activer/désactiver les notifications", function(state)
+            showNotifications = state
+            if state then
+                notify("Notifications", "Notifications activées", 2)
+            end
+        end)
+        
+        -- Option pour fermer l'interface
+        OptionsSection:NewButton("Fermer l'interface", "Ferme l'interface actuelle", function()
+            Library:ToggleUI()
+        end)
     end)
     
-    -- Option pour fermer l'interface
-    OptionsSection:NewButton("Fermer l'interface", "Ferme l'interface actuelle", function()
-        Library:ToggleUI()
-    end)
-    
+    notify("Succès", "Script PS99 Mobile Pro chargé avec succès!", 3)
     return true
 end
 
@@ -284,9 +304,28 @@ function createKeyUI()
         if KeyInput.Text == correctKey then
             StatusLabel.Text = "Clé valide! Chargement..."
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-            wait(1)
+            
+            -- Créer un effet visuel de chargement
+            for i = 1, 3 do
+                wait(0.3)
+                StatusLabel.Text = StatusLabel.Text .. "."
+            end
+            
+            wait(0.5)
             KeyUI:Destroy()
-            loadScript()
+            
+            -- Protection contre les erreurs lors du chargement
+            local success, errorMsg = pcall(loadScript)
+            if not success then
+                -- Recréer l'interface en cas d'échec
+                wait(1)
+                local errorUI = createKeyUI()
+                local statusLabel = errorUI.MainFrame.StatusLabel
+                statusLabel.Text = "ERREUR: Impossible de charger le script"
+                statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+                wait(3)
+                statusLabel.Text = "Erreur: " .. tostring(errorMsg)
+            end
         else
             StatusLabel.Text = "Clé invalide! Essayez à nouveau."
             StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
