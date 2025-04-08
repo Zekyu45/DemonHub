@@ -1,5 +1,5 @@
 -- Script PS99 simplifié avec UI amélioré et draggable
--- Version modifiée avec AFK, TP Event et Auto TP Breakables - CORRIGÉ
+-- Version optimisée avec AFK, TP Event et Auto TP Breakables - CORRIGÉ
 
 -- Système de clé d'authentification
 local keySystem = true
@@ -18,10 +18,7 @@ function loadScript()
     if success then
         Library = result
     else
-        -- Message d'erreur et nouvelle tentative avec une URL de secours
-        warn("Erreur lors du chargement de la bibliothèque UI. Tentative avec source alternative...")
-        
-        -- Utiliser une source alternative plus stable pour les appareils mobiles
+        -- Nouvelle tentative avec une URL de secours
         success, result = pcall(function()
             return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/obfuscated/source.lua", true))()
         end)
@@ -30,10 +27,8 @@ function loadScript()
             Library = result
         else
             -- Dernière tentative avec une solution de repli locale
-            warn("Échec du chargement de l'interface. Nouvelle tentative dans 3 secondes...")
             wait(3)
             
-            -- Dernière tentative avec une troisième source
             success, result = pcall(function()
                 return loadstring(game:HttpGet("https://raw.githubusercontent.com/xHeptc/Kavo-UI-Library/master/source.lua", true))()
             end)
@@ -41,7 +36,6 @@ function loadScript()
             if success then
                 Library = result
             else
-                warn("Échec définitif du chargement de l'interface.")
                 return false
             end
         end
@@ -49,7 +43,6 @@ function loadScript()
     
     -- Vérifier si la bibliothèque est chargée correctement
     if not Library or type(Library) ~= "table" or not Library.CreateLib then
-        warn("Bibliothèque UI mal chargée. Nouvelle tentative...")
         wait(2)
         return loadScript()
     end
@@ -62,26 +55,23 @@ function loadScript()
     local ReplicatedStorage = game:GetService("ReplicatedStorage")
     local RunService = game:GetService("RunService")
     
-    -- Afficher un message de débogage
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = "Débogage",
-            Text = "Chargement de l'interface en cours...",
-            Duration = 3
-        })
-    end)
+    -- Désactiver les notifications excessives
+    local showNotifications = false
+    
+    -- Fonction notification simplifiée
+    local function notify(title, text, duration)
+        if not showNotifications then return end
+        pcall(function()
+            StarterGui:SetCore("SendNotification", {
+                Title = title,
+                Text = text,
+                Duration = duration or 2
+            })
+        end)
+    end
     
     -- Créer l'interface avec un thème compatible mobile
     local Window = Library.CreateLib("PS99 Mobile Pro", "Ocean")
-    
-    -- Afficher un message de confirmation après la création de l'interface
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = "UI Status",
-            Text = "Interface créée avec succès!",
-            Duration = 3
-        })
-    end)
     
     -- Fonction Anti-AFK
     local function antiAfk()
@@ -89,7 +79,6 @@ function loadScript()
         LocalPlayer.Idled:Connect(function()
             VirtualUser:CaptureController()
             VirtualUser:ClickButton2(Vector2.new())
-            StarterGui:SetCore("SendNotification", {Title = "Anti-AFK", Text = "Anti-AFK activé", Duration = 3})
         end)
     end
     antiAfk()
@@ -104,9 +93,9 @@ function loadScript()
     -- Variables de contrôle pour les toggles
     local autoTpEventActive = false
     local autoTpBreakablesActive = false
-    local inEventArea = false -- Nouvelle variable pour suivre si le joueur est déjà dans la zone d'événement
+    local inEventArea = false -- Variable pour suivre si le joueur est dans la zone d'événement
 
-    -- Vérification si une partie du jeu est chargée
+    -- Vérification optimisée si une partie du jeu est chargée
     local function isAreaLoaded(position, radius)
         radius = radius or 10
         local parts = workspace:GetPartBoundsInRadius(position, radius)
@@ -128,17 +117,10 @@ function loadScript()
         return true
     end
 
-    -- Fonction de téléportation améliorée
+    -- Fonction de téléportation améliorée et optimisée
     local function teleportTo(position)
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then 
-            pcall(function()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Erreur",
-                    Text = "Personnage non trouvé",
-                    Duration = 3
-                })
-            end)
             return false 
         end
         
@@ -151,53 +133,19 @@ function loadScript()
         
         -- Si déjà à proximité (moins de 20 unités), ne pas téléporter
         if distanceToTarget < 20 then
-            pcall(function()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Téléportation",
-                    Text = "Déjà à la position cible",
-                    Duration = 2
-                })
-            end)
             return true
         end
         
         -- Téléportation en deux étapes
         character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
         
-        pcall(function()
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Attente du chargement...",
-                Duration = 3
-            })
-        end)
+        -- Attendre que la zone soit chargée (max 5 secondes pour plus de réactivité)
+        local loaded = waitForAreaLoad(position, 5)
         
-        -- Attendre que la zone soit chargée (max 8 secondes)
-        local loaded = waitForAreaLoad(position, 8)
-        if loaded then
-            character.HumanoidRootPart.CFrame = CFrame.new(position)
-            character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-            
-            pcall(function()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Téléportation",
-                    Text = "Zone chargée avec succès",
-                    Duration = 2
-                })
-            end)
-            return true
-        else
-            pcall(function()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Avertissement",
-                    Text = "Chargement incomplet, tentative de stabilisation",
-                    Duration = 3
-                })
-            end)
-            
-            character.HumanoidRootPart.CFrame = CFrame.new(position)
-            character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
-            
+        character.HumanoidRootPart.CFrame = CFrame.new(position)
+        character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        
+        if not loaded then
             -- Utiliser une méthode de secours - appliquer une force vers le haut
             local bodyVelocity = Instance.new("BodyVelocity")
             bodyVelocity.Velocity = Vector3.new(0, 10, 0)
@@ -205,12 +153,12 @@ function loadScript()
             bodyVelocity.Parent = character.HumanoidRootPart
             
             game:GetService("Debris"):AddItem(bodyVelocity, 1)
-            
-            return true
         end
+        
+        return true
     end
 
-    -- Fonction pour vérifier si le joueur est à une position spécifique
+    -- Fonction pour vérifier si le joueur est à une position spécifique (optimisée)
     local function isAtPosition(position, tolerance)
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
@@ -220,21 +168,26 @@ function loadScript()
         return distance <= tolerance
     end
     
-    -- Fonction pour vérifier si le joueur est dans la zone d'événement
+    -- Fonction optimisée pour vérifier si le joueur est dans la zone d'événement
     local function checkIfInEventArea()
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
         
+        -- Cache pour éviter de rechercher à chaque frame
+        local eventKeywords = {"event", "arena", "stage"}
+        
         -- Rechercher des structures qui pourraient être liées à l'événement
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and 
-               (obj.Name:lower():find("event") or 
-                obj.Name:lower():find("arena") or 
-                obj.Name:lower():find("stage")) then
-                
-                local distance = (character.HumanoidRootPart.Position - obj.Position).Magnitude
-                if distance < 300 then  -- Si à moins de 300 unités d'une structure d'événement
-                    return true
+        for _, obj in pairs(workspace:GetChildren()) do
+            if obj:IsA("BasePart") or obj:IsA("Model") then
+                local name = obj.Name:lower()
+                for _, keyword in ipairs(eventKeywords) do
+                    if name:find(keyword) then
+                        local distance = (character.HumanoidRootPart.Position - 
+                            (obj:IsA("BasePart") and obj.Position or obj:GetPrimaryPartCFrame().Position)).Magnitude
+                        if distance < 300 then
+                            return true
+                        end
+                    end
                 end
             end
         end
@@ -242,24 +195,16 @@ function loadScript()
         return false
     end
 
-    -- Fonction de détection de chute dans le vide
+    -- Fonction de détection de chute dans le vide (optimisée)
     local function setupVoidDetection()
         spawn(function()
             while true do
-                wait(1)
+                wait(2) -- Vérification moins fréquente pour réduire la charge
                 local character = LocalPlayer.Character
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     local position = character.HumanoidRootPart.Position
                     
                     if position.Y < -50 then
-                        pcall(function()
-                            StarterGui:SetCore("SendNotification", {
-                                Title = "Protection anti-vide",
-                                Text = "Détection de chute, téléportation...",
-                                Duration = 3
-                            })
-                        end)
-                        
                         -- Téléporter au portail d'événement avec une hauteur plus importante
                         local safePosition = Vector3.new(portalPosition.X, portalPosition.Y + 10, portalPosition.Z)
                         character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
@@ -281,22 +226,49 @@ function loadScript()
     local EventTab = Window:NewTab("Événements")
     local EventSection = EventTab:NewSection("Événements actuels")
     
-    -- Fonction pour trouver les breakables dans toutes les zones
+    -- Cache des breakables pour optimisation
+    local breakableCache = {}
+    local lastCacheUpdate = 0
+    local cacheUpdateInterval = 3 -- Rafraîchir le cache toutes les 3 secondes
+    
+    -- Fonction pour trouver les breakables dans toutes les zones (optimisée avec cache)
     local function findNearestBreakable()
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
         
-        local closestBreakable = nil
-        local closestDistance = 2000  -- Augmentation de la distance de recherche
+        -- Mettre à jour le cache si nécessaire
+        local currentTime = tick()
+        if currentTime - lastCacheUpdate > cacheUpdateInterval then
+            breakableCache = {}
+            
+            -- Recherche optimisée - utiliser GetChildren au lieu de GetDescendants
+            for _, area in pairs(workspace:GetChildren()) do
+                -- Vérifier seulement les objets qui pourraient contenir des breakables
+                if typeof(area) == "Instance" and (area:IsA("Folder") or area:IsA("Model")) then
+                    for _, obj in pairs(area:GetChildren()) do
+                        if obj:IsA("BasePart") and 
+                           (obj.Name:lower():find("break") or 
+                            obj.Name:lower():find("crystal") or 
+                            obj.Name:lower():find("coin") or
+                            obj.Name:lower():find("chest")) then
+                            
+                            table.insert(breakableCache, obj)
+                        end
+                    end
+                end
+            end
+            
+            lastCacheUpdate = currentTime
+        end
         
-        for _, obj in pairs(workspace:GetDescendants()) do
-            if obj:IsA("BasePart") and 
-               (obj.Name:lower():find("break") or 
-                obj.Name:lower():find("crystal") or 
-                obj.Name:lower():find("coin") or
-                obj.Name:lower():find("chest")) then
-                
-                local distance = (obj.Position - character.HumanoidRootPart.Position).Magnitude
+        -- Trouver le plus proche dans le cache
+        local closestBreakable = nil
+        local closestDistance = 2000
+        local characterPosition = character.HumanoidRootPart.Position
+        
+        for _, obj in ipairs(breakableCache) do
+            if obj and obj.Parent then -- Vérifier que l'objet existe toujours
+                local distance = (obj.Position - characterPosition).Magnitude
                 if distance <= 2000 and distance < closestDistance then
                     closestBreakable = obj
                     closestDistance = distance
@@ -307,50 +279,20 @@ function loadScript()
         return closestBreakable
     end
     
-    -- Fonction pour trouver le centre de la zone actuelle (événement ou normale)
+    -- Fonction pour trouver le centre de la zone actuelle (optimisée)
     local function findCurrentAreaCenter()
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then 
             return character.HumanoidRootPart.Position
         end
         
-        -- Si on est dans l'événement, trouver le centre de l'événement
+        -- Si on est dans l'événement, approximer le centre
         if inEventArea then
-            -- Chercher si des structures d'événement sont visibles autour du joueur
-            local eventStructures = {}
-            local minX, minY, minZ = math.huge, math.huge, math.huge
-            local maxX, maxY, maxZ = -math.huge, -math.huge, -math.huge
-            
-            -- Rechercher des structures qui pourraient être liées à l'événement
-            for _, obj in pairs(workspace:GetDescendants()) do
-                if obj:IsA("BasePart") and 
-                   (obj.Name:lower():find("event") or 
-                    obj.Name:lower():find("arena") or 
-                    obj.Name:lower():find("stage")) then
-                    
-                    table.insert(eventStructures, obj)
-                    
-                    -- Mettre à jour les limites de la zone
-                    minX = math.min(minX, obj.Position.X)
-                    minY = math.min(minY, obj.Position.Y)
-                    maxX = math.max(maxX, obj.Position.X)
-                    maxY = math.max(maxY, obj.Position.Y)
-                    minZ = math.min(minZ, obj.Position.Z)
-                    maxZ = math.max(maxZ, obj.Position.Z)
-                end
-            end
-            
-            -- Si des structures ont été trouvées, calculer le centre
-            if #eventStructures > 0 then
-                local centerX = (minX + maxX) / 2
-                local centerY = (minY + maxY) / 2 + 5  -- Ajouter une hauteur pour éviter d'être sous le sol
-                local centerZ = (minZ + maxZ) / 2
-                
-                return Vector3.new(centerX, centerY, centerZ)
-            end
+            -- Approximation simplifée basée sur la position actuelle
+            return character.HumanoidRootPart.Position
         end
         
-        -- Si pas d'événement ou pas de structures trouvées, renvoyer la position actuelle
+        -- Si pas d'événement, renvoyer la position actuelle
         return character.HumanoidRootPart.Position
     end
     
@@ -358,61 +300,47 @@ function loadScript()
     local function equipAllPetsInfiniteSpeed()
         wait(1)
         
-        local success, err = pcall(function()
+        pcall(function()
             if ReplicatedStorage:FindFirstChild("RemoteEvents") then
                 if ReplicatedStorage.RemoteEvents:FindFirstChild("EquipBest") then
                     ReplicatedStorage.RemoteEvents.EquipBest:FireServer()
-                    pcall(function()
-                        StarterGui:SetCore("SendNotification", {
-                            Title = "Pets",
-                            Text = "Équipement des meilleurs pets...",
-                            Duration = 2
-                        })
-                    end)
                 end
                 
                 wait(1)
                 
                 if ReplicatedStorage.RemoteEvents:FindFirstChild("SetSpeed") then
                     ReplicatedStorage.RemoteEvents.SetSpeed:FireServer(999999)
-                    pcall(function()
-                        StarterGui:SetCore("SendNotification", {
-                            Title = "Pets",
-                            Text = "Vitesse infinie activée pour les pets",
-                            Duration = 2
-                        })
-                    end)
                 end
             end
         end)
-        
-        if not success then
-            pcall(function()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Erreur Pets",
-                    Text = "Impossible d'équiper les pets: " .. tostring(err):sub(1, 50),
-                    Duration = 3
-                })
-            end)
-        end
     end
     
-    -- Fonction pour cibler et casser les breakables
+    -- Réduire la fréquence des téléportations pour plus de stabilité
+    local teleportCooldown = 1 -- 1 seconde entre les téléportations
+    local lastTeleportTime = 0
+    
+    -- Fonction pour cibler et casser les breakables (optimisée)
     local function targetBreakables()
         spawn(function()
             local lastBreakableTime = tick()
-            local scanForBreakablesDelay = 0.5  -- Délai de recherche des breakables
+            local scanForBreakablesDelay = 1  -- Délai plus long pour réduire la charge
             
             while autoTpBreakablesActive do
-                -- Vérifier si nous sommes dans la zone d'événement
-                inEventArea = checkIfInEventArea()
+                -- Vérifier si nous sommes dans la zone d'événement (moins fréquemment)
+                if tick() % 10 < 1 then -- Vérifier environ toutes les 10 secondes
+                    inEventArea = checkIfInEventArea()
+                end
                 
-                -- Chercher le breakable le plus proche (dans n'importe quelle zone)
+                -- Chercher le breakable le plus proche
                 local nearestBreakable = findNearestBreakable()
                 
                 if nearestBreakable then
-                    -- Téléporter au breakable
-                    teleportTo(nearestBreakable.Position)
+                    -- Limiter la fréquence des téléportations
+                    local currentTime = tick()
+                    if currentTime - lastTeleportTime >= teleportCooldown then
+                        teleportTo(nearestBreakable.Position)
+                        lastTeleportTime = currentTime
+                    end
                     
                     -- Tentative d'interaction avec le breakable
                     if ReplicatedStorage:FindFirstChild("RemoteEvents") and
@@ -426,19 +354,14 @@ function loadScript()
                 else
                     -- Si aucun breakable n'est trouvé pendant 10 secondes, chercher dans une autre zone
                     if tick() - lastBreakableTime > 10 then
-                        pcall(function()
-                            StarterGui:SetCore("SendNotification", {
-                                Title = "Auto TP Breakables",
-                                Text = "Recherche de breakables dans d'autres zones...",
-                                Duration = 3
-                            })
-                        end)
-                        
                         -- Tenter d'aller dans la zone d'événement si pas déjà dedans
                         if not inEventArea then
                             -- Téléporter au portail pour accéder à l'événement
-                            teleportTo(portalPosition)
-                            wait(2) -- Attendre que le portail fonctionne
+                            if tick() - lastTeleportTime >= teleportCooldown then
+                                teleportTo(portalPosition)
+                                lastTeleportTime = tick()
+                                wait(2) -- Attendre que le portail fonctionne
+                            end
                         end
                         
                         lastBreakableTime = tick()
@@ -457,46 +380,16 @@ function loadScript()
         if state then
             local character = LocalPlayer.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then 
-                pcall(function()
-                    StarterGui:SetCore("SendNotification", {
-                        Title = "Auto TP Event",
-                        Text = "Personnage non trouvé",
-                        Duration = 3
-                    })
-                end)
                 return 
             end
             
             -- Vérifier si déjà dans la zone d'événement
             inEventArea = checkIfInEventArea()
             
-            if inEventArea then
-                pcall(function()
-                    StarterGui:SetCore("SendNotification", {
-                        Title = "Auto TP Event",
-                        Text = "Déjà dans la zone d'événement",
-                        Duration = 3
-                    })
-                end)
-            else
+            if not inEventArea then
                 -- Téléporter uniquement au portail d'événement
                 teleportTo(portalPosition)
-                pcall(function()
-                    StarterGui:SetCore("SendNotification", {
-                        Title = "Auto TP Event",
-                        Text = "Téléporté au portail de l'événement",
-                        Duration = 3
-                    })
-                end)
             end
-        else
-            pcall(function()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Auto TP Event",
-                    Text = "Auto TP Event désactivé",
-                    Duration = 3
-                })
-            end)
         end
     end)
     
@@ -507,13 +400,6 @@ function loadScript()
         if state then
             local character = LocalPlayer.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then
-                pcall(function()
-                    StarterGui:SetCore("SendNotification", {
-                        Title = "Auto TP Breakables",
-                        Text = "Personnage non trouvé",
-                        Duration = 3
-                    })
-                end)
                 return
             end
                 
@@ -523,24 +409,8 @@ function loadScript()
             -- Vérifier si nous sommes dans la zone d'événement
             inEventArea = checkIfInEventArea()
             
-            pcall(function()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Auto TP Breakables",
-                    Text = "Recherche et ciblage des breakables activés",
-                    Duration = 3
-                })
-            end)
-            
             -- Démarrer le ciblage automatique des breakables (dans toutes les zones)
             targetBreakables()
-        else
-            pcall(function()
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Auto TP Breakables",
-                    Text = "Auto TP Breakables désactivé",
-                    Duration = 3
-                })
-            end)
         end
     end)
 
@@ -548,18 +418,14 @@ function loadScript()
     local OptionsTab = Window:NewTab("Options")
     local OptionsSection = OptionsTab:NewSection("Paramètres")
     
+    -- Option pour activer/désactiver les notifications
+    OptionsSection:NewToggle("Notifications", "Activer/désactiver les notifications", function(state)
+        showNotifications = state
+    end)
+    
     -- Option pour fermer l'interface
     OptionsSection:NewButton("Fermer l'interface", "Ferme l'interface actuelle", function()
         Library:ToggleUI()
-    end)
-
-    -- Afficher message de bienvenue
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = "PS99 Mobile Pro",
-            Text = "Script modifié chargé avec succès!",
-            Duration = 5
-        })
     end)
 
     return true
@@ -657,27 +523,11 @@ function createKeyUI()
     StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     StatusLabel.TextSize = 14
     
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "Interface de clé",
-            Text = "Interface de clé chargée",
-            Duration = 3
-        })
-    end)
-    
     -- Fonction de vérification de clé
     local function checkKey()
         if KeyInput.Text == correctKey then
             StatusLabel.Text = "Clé valide! Chargement..."
             StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-            
-            pcall(function()
-                game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "Validation de clé",
-                    Text = "Clé correcte, chargement du script...",
-                    Duration = 3
-                })
-            end)
             
             wait(1)
             KeyUI:Destroy()
@@ -685,14 +535,6 @@ function createKeyUI()
         else
             StatusLabel.Text = "Clé invalide!"
             StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-            
-            pcall(function()
-                game:GetService("StarterGui"):SetCore("SendNotification", {
-                    Title = "Erreur",
-                    Text = "Clé invalide!",
-                    Duration = 3
-                })
-            end)
         end
     end
     
@@ -710,15 +552,6 @@ if keySystem then
     -- Vérifier si le joueur est sur mobile
     local isMobile = game:GetService("UserInputService").TouchEnabled and 
                     not game:GetService("UserInputService").KeyboardEnabled
-    
-    -- Notification de démarrage
-    pcall(function()
-        game:GetService("StarterGui"):SetCore("SendNotification", {
-            Title = "PS99 Mobile Pro",
-            Text = isMobile and "Mode mobile détecté" or "Mode PC détecté",
-            Duration = 3
-        })
-    end)
     
     -- Créer l'interface de clé
     createKeyUI()
