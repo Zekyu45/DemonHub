@@ -106,11 +106,11 @@ local function createUI()
         ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
     end
     
-    -- Frame principale
+    -- Frame principale - MODIFIÉE POUR ÊTRE RECTANGULAIRE ET CENTRÉE
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 200, 0, 250)
-    MainFrame.Position = UDim2.new(0.85, 0, 0.5, -125)
+    MainFrame.Size = UDim2.new(0, 300, 0, 220) -- Taille rectangulaire
+    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -110) -- Centrée sur l'écran
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
     MainFrame.BorderSizePixel = 0
     MainFrame.Parent = ScreenGui
@@ -207,7 +207,6 @@ local function createUI()
     local ListLayout = Instance.new("UIListLayout")
     ListLayout.Padding = UDim.new(0, 10)
     ListLayout.Parent = ContentFrame
-    
     -- Section fonctions principales
     local function createSection(title)
         local section = Instance.new("Frame")
@@ -394,8 +393,8 @@ local function createUI()
         toggleAfk(state)
     end)
     
-    -- Auto TP Event toggle
-    createToggle(eventSection, "Auto TP Event", function(state)
+    -- TP Event toggle - MODIFIÉ POUR ÊTRE UN TOGGLE PLUTÔT QU'UN BOUTON
+    createToggle(eventSection, "TP to Event", function(state)
         autoTpEventActive = state
         
         if autoTpEventCoroutine then
@@ -422,16 +421,10 @@ local function createUI()
             end)
             
             coroutine.resume(autoTpEventCoroutine)
-            notify("Event", "Auto TP Event activé", 2)
+            notify("Event", "TP to Event activé", 2)
         else
-            notify("Event", "Auto TP Event désactivé", 2)
+            notify("Event", "TP to Event désactivé", 2)
         end
-    end)
-    
-    -- TP Portal Button
-    createButton(eventSection, "TP au portail", function()
-        teleportTo(portalPosition)
-        notify("Event", "Téléportation au portail d'événement", 2)
     end)
     
     -- Toggle pour les notifications
@@ -554,60 +547,60 @@ local function createKeyUI()
     UICornerButton.Parent = SubmitButton
 
     local StatusLabel = Instance.new("TextLabel")
-StatusLabel.Name = "StatusLabel"
-StatusLabel.Parent = MainFrame
-StatusLabel.BackgroundTransparency = 1
-StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
-StatusLabel.Size = UDim2.new(1, 0, 0, 30)
-StatusLabel.Font = Enum.Font.Gotham
-StatusLabel.Text = "Entrez la clé puis cliquez sur Valider"
-StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-StatusLabel.TextSize = 14
+    StatusLabel.Name = "StatusLabel"
+    StatusLabel.Parent = MainFrame
+    StatusLabel.BackgroundTransparency = 1
+    StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
+    StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+    StatusLabel.Font = Enum.Font.Gotham
+    StatusLabel.Text = "Entrez la clé puis cliquez sur Valider"
+    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    StatusLabel.TextSize = 14
     
-SubmitButton.MouseEnter:Connect(function()
-    SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 140, 240)
-end)
+    SubmitButton.MouseEnter:Connect(function()
+        SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 140, 240)
+    end)
     
-SubmitButton.MouseLeave:Connect(function()
-    SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-end)
+    SubmitButton.MouseLeave:Connect(function()
+        SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+    end)
     
-SubmitButton.MouseButton1Click:Connect(function()
-    if KeyInput.Text == correctKey then
-        StatusLabel.Text = "Clé valide! Chargement..."
-        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-        
-        for i = 1, 3 do
-            wait(0.3)
-            StatusLabel.Text = StatusLabel.Text .. "."
+    SubmitButton.MouseButton1Click:Connect(function()
+        if KeyInput.Text == correctKey then
+            StatusLabel.Text = "Clé valide! Chargement..."
+            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+            
+            for i = 1, 3 do
+                wait(0.3)
+                StatusLabel.Text = StatusLabel.Text .. "."
+            end
+            
+            wait(0.5)
+            KeyUI:Destroy()
+            
+            local success, errorMsg = pcall(createUI)
+            if not success then
+                wait(1)
+                local errorUI = createKeyUI()
+                local statusLabel = errorUI.MainFrame.StatusLabel
+                statusLabel.Text = "ERREUR: Impossible de charger le script"
+                statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+                wait(3)
+                statusLabel.Text = "Erreur: " .. tostring(errorMsg)
+            end
+        else
+            StatusLabel.Text = "Clé invalide! Essayez à nouveau."
+            StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
         end
-        
-        wait(0.5)
-        KeyUI:Destroy()
-        
-        local success, errorMsg = pcall(createUI)
-        if not success then
-            wait(1)
-            local errorUI = createKeyUI()
-            local statusLabel = errorUI.MainFrame.StatusLabel
-            statusLabel.Text = "ERREUR: Impossible de charger le script"
-            statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-            wait(3)
-            statusLabel.Text = "Erreur: " .. tostring(errorMsg)
+    end)
+    
+    KeyInput.FocusLost:Connect(function(enterPressed)
+        if enterPressed then
+            SubmitButton.MouseButton1Click:Fire()
         end
-    else
-        StatusLabel.Text = "Clé invalide! Essayez à nouveau."
-        StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-    end
-end)
+    end)
     
-KeyInput.FocusLost:Connect(function(enterPressed)
-    if enterPressed then
-        SubmitButton.MouseButton1Click:Fire()
-    end
-end)
-    
-return KeyUI
+    return KeyUI
 end
 
 -- Démarrage de l'application
