@@ -1,10 +1,11 @@
--- Script PS99 Mobile Pro - UI Fluent
+-- Script PS99 Mobile Pro - Mobile Edition
+-- Utilise Orion Library pour une meilleure compatibilité mobile
 
 -- Variables principales
 local autoTpEventActive = false
 local showNotifications = true
 local correctKey = "zekyu"
-local hasBeenTeleported = false -- Variable pour tracker si le téléport a déjà été effectué
+local hasBeenTeleported = false
 
 -- Services
 local Players = game:GetService("Players")
@@ -16,25 +17,22 @@ local LocalPlayer = Players.LocalPlayer
 -- Position du portail pour aller à l'événement
 local portalPosition = Vector3.new(174.04, 16.96, -141.07)
 
--- Chargement de la bibliothèque Fluent UI
-local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+-- Chargement de la bibliothèque Orion UI (compatible mobile)
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
 
--- Création des variables pour les fenêtres Fluent
-local Window
+-- Création des variables pour les fenêtres
+local MainWindow
 local KeyWindow
 
 -- Fonction notification
 local function notify(title, text, duration)
     if not showNotifications then return end
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = title, 
-            Text = text, 
-            Duration = duration or 2,
-            Icon = "rbxassetid://4483345998",
-            Button1 = "OK"
-        })
-    end)
+    OrionLib:MakeNotification({
+        Name = title,
+        Content = text,
+        Image = "rbxassetid://4483345998",
+        Time = duration or 3
+    })
 end
 
 -- Fonction Anti-AFK
@@ -62,7 +60,7 @@ local function setupAntiAfk()
     end
 end
 
--- Fonction de téléportation - Modifiée pour ne téléporter qu'une seule fois
+-- Fonction de téléportation
 local function teleportTo(position)
     local character = LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then 
@@ -89,36 +87,41 @@ local function teleportTo(position)
     return true
 end
 
--- Création de l'UI avec Fluent
-local function createUI()
-    -- Si une fenêtre existe déjà, la détruire
-    if Window then
-        Window:Destroy()
+-- Création de l'UI principale
+local function createMainUI()
+    if MainWindow then
+        OrionLib:Destroy()
     end
     
-    -- Options de la fenêtre principale
-    local options = {
-        Title = "PS99 Mobile Pro",
-        SubTitle = "par zekyu",
-        TabWidth = 160,
-        Size = UDim2.new(0, 550, 0, 350),
-        Acrylic = true,
-        Theme = "Dark",
-        MinimizeKey = Enum.KeyCode.LeftControl
-    }
-    
-    -- Création de la fenêtre
-    Window = Fluent:CreateWindow(options)
+    -- Création de la fenêtre principale
+    MainWindow = OrionLib:MakeWindow({
+        Name = "PS99 Mobile Pro",
+        HidePremium = true,
+        SaveConfig = false,
+        IntroEnabled = true,
+        IntroText = "PS99 Mobile Pro",
+        IntroIcon = "rbxassetid://4483345998",
+        Icon = "rbxassetid://4483345998",
+        ConfigFolder = "PS99MobilePro"
+    })
     
     -- Setup Anti-AFK
     local toggleAfk = setupAntiAfk()
+    
     -- Onglet Fonctionnalités
-    local MainTab = Window:CreateTab("Fonctionnalités", "rbxassetid://4483362458")
-    local MainSection = MainTab:CreateSection("Fonctions Principales")
+    local MainTab = MainWindow:MakeTab({
+        Name = "Fonctionnalités",
+        Icon = "rbxassetid://4483362458",
+        PremiumOnly = false
+    })
+    
+    MainTab:AddSection({
+        Name = "Fonctions Principales"
+    })
     
     -- Toggle Anti-AFK
-    MainTab:CreateToggle({
-        Title = "Anti-AFK",
+    MainTab:AddToggle({
+        Name = "Anti-AFK",
         Default = false,
         Callback = function(Value)
             toggleAfk(Value)
@@ -126,12 +129,19 @@ local function createUI()
     })
     
     -- Onglet Événements
-    local EventTab = Window:CreateTab("Événements", "rbxassetid://4483364237")
-    local EventSection = EventTab:CreateSection("Fonctions d'Événements")
+    local EventTab = MainWindow:MakeTab({
+        Name = "Événements",
+        Icon = "rbxassetid://4483364237",
+        PremiumOnly = false
+    })
     
-    -- TP Event toggle - MODIFIÉ POUR NE TÉLÉPORTER QU'UNE FOIS
-    EventTab:CreateToggle({
-        Title = "TP to Event",
+    EventTab:AddSection({
+        Name = "Fonctions d'Événements"
+    })
+    
+    -- TP Event toggle
+    EventTab:AddToggle({
+        Name = "TP to Event",
         Default = false,
         Callback = function(Value)
             autoTpEventActive = Value
@@ -153,13 +163,21 @@ local function createUI()
             end
         end
     })
+    
     -- Onglet Options
-    local SettingsTab = Window:CreateTab("Options", "rbxassetid://4483345998")
-    local SettingsSection = SettingsTab:CreateSection("Paramètres")
+    local SettingsTab = MainWindow:MakeTab({
+        Name = "Options",
+        Icon = "rbxassetid://4483345998",
+        PremiumOnly = false
+    })
+    
+    SettingsTab:AddSection({
+        Name = "Paramètres"
+    })
     
     -- Toggle pour les notifications
-    SettingsTab:CreateToggle({
-        Title = "Notifications",
+    SettingsTab:AddToggle({
+        Name = "Notifications",
         Default = true,
         Callback = function(Value)
             showNotifications = Value
@@ -170,101 +188,97 @@ local function createUI()
     })
     
     -- Bouton pour fermer l'interface
-    SettingsTab:CreateButton({
-        Title = "Fermer l'interface",
+    SettingsTab:AddButton({
+        Name = "Fermer l'interface",
         Callback = function()
-            Window:Destroy()
+            OrionLib:Destroy()
         end
     })
     
-    -- Créer un paragraphe d'information
-    SettingsTab:CreateParagraph({
-        Title = "Information",
-        Content = "PS99 Mobile Pro v1.0 - Développé par zekyu"
-    })
-    
-    return Window
+    -- Paragraphe d'information
+    SettingsTab:AddParagraph("Information", "PS99 Mobile Pro v1.0 - Développé par zekyu")
 end
 
--- Interface de saisie de clé avec Fluent
+-- Interface de saisie de clé
 local function createKeyUI()
-    -- Si une fenêtre de clé existe déjà, la détruire
-    if KeyWindow then
-        KeyWindow:Destroy()
-    end
-    
-    -- Options de la fenêtre de clé
-    local keyOptions = {
-        Title = "PS99 Mobile Pro - Authentification",
-        SubTitle = "Système de clé",
-        TabWidth = 160,
-        Size = UDim2.new(0, 450, 0, 230),
-        Acrylic = true,
-        Theme = "Dark"
-    }
-    
-    -- Création de la fenêtre de clé
-    KeyWindow = Fluent:CreateWindow(keyOptions)
+    OrionLib:MakeWindow({
+        Name = "PS99 Mobile Pro - Authentification",
+        HidePremium = true,
+        SaveConfig = false,
+        IntroEnabled = false,
+        Icon = "rbxassetid://4483345998",
+        ConfigFolder = "PS99MobilePro"
+    })
     
     -- Onglet Authentification
-    local AuthTab = KeyWindow:CreateTab("Tab", "rbxassetid://4483345998")
+    local KeyTab = OrionLib:MakeTab({
+        Name = "Clé",
+        Icon = "rbxassetid://4483345998",
+        PremiumOnly = false
+    })
     
-    -- Section pour la clé
-    local KeySection = AuthTab:CreateSection("Entrez votre clé")
+    KeyTab:AddSection({
+        Name = "Entrez votre clé"
+    })
+    
+    -- Variable pour stocker la clé saisie
+    local keyInput = ""
     
     -- Input pour la clé
-    local keyInput = AuthTab:CreateInput({
-        Title = "Clé d'activation",
+    KeyTab:AddTextbox({
+        Name = "Clé d'activation",
         Default = "",
-        Placeholder = "Entrez votre clé ici...",
-        Callback = function(Text)
-            -- La validation se fera avec le bouton
+        TextDisappear = false,
+        Callback = function(Value)
+            keyInput = Value
         end
     })
     
     -- Bouton pour vérifier la clé
-    AuthTab:CreateButton({
-        Title = "Valider la clé",
+    KeyTab:AddButton({
+        Name = "Valider la clé",
         Callback = function()
-            if keyInput.Value == correctKey then
-                Fluent:Notify({
-                    Title = "Authentification réussie",
+            if keyInput == correctKey then
+                OrionLib:MakeNotification({
+                    Name = "Authentification réussie",
                     Content = "Chargement de l'interface principale...",
-                    Duration = 3
+                    Image = "rbxassetid://4483345998",
+                    Time = 3
                 })
-                
-                -- Détruire la fenêtre de clé et charger l'interface principale
-                KeyWindow:Destroy()
-                KeyWindow = nil
                 
                 -- Petit délai avant de charger l'interface principale
                 task.spawn(function()
                     wait(1)
-                    local success, errorMsg = pcall(createUI)
+                    OrionLib:Destroy()
+                    wait(0.5)
+                    local success, errorMsg = pcall(createMainUI)
                     if not success then
-                        notify("Erreur", "Impossible de charger le script: " .. tostring(errorMsg), 5)
-                        -- Recréer l'interface de clé en cas d'erreur
                         wait(1)
-                        createKeyUI()
+                        notify("Erreur", "Impossible de charger le script: " .. tostring(errorMsg), 5)
+                        wait(1)
+                        createKeyUI() -- Recréer l'interface de clé en cas d'erreur
                     end
                 end)
             else
-                Fluent:Notify({
-                    Title = "Clé invalide",
+                OrionLib:MakeNotification({
+                    Name = "Clé invalide",
                     Content = "Veuillez réessayer avec la bonne clé",
-                    Duration = 2
+                    Image = "rbxassetid://4483345998",
+                    Time = 2
                 })
             end
         end
     })
-    
-    return KeyWindow
 end
 
 -- Démarrage de l'application
 pcall(function()
     -- Message de démarrage
-    notify("PS99 Mobile Pro", "Chargement du système d'authentification...", 3)
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "PS99 Mobile Pro", 
+        Text = "Chargement du système d'authentification...",
+        Duration = 3
+    })
     
     -- Charger l'interface de clé
     wait(1)
