@@ -163,6 +163,7 @@ local function createBackupMainUI()
     closeButton.MouseButton1Click:Connect(function()
         mainGui:Destroy()
     end)
+
     -- Contenu principal
     local contentFrame = Instance.new("Frame")
     contentFrame.Name = "Content"
@@ -229,7 +230,6 @@ local function createBackupMainUI()
             notify("Event", "Vous avez déjà été téléporté à l'événement", 2)
         end
     end)
-    
     -- Créer un onglet pour Notifications
     local notifButton = Instance.new("TextButton")
     notifButton.Name = "NotifToggle"
@@ -271,65 +271,66 @@ local function createBackupMainUI()
     notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
 end
 
--- Tentative de charger Orion UI (alternative moderne à Rayfield)
-local function loadOrion()
-    notify("PS99 Mobile Pro", "Tentative de chargement de l'interface Orion...", 2)
+-- Tentative de charger RayField UI
+local function loadRayField()
+    notify("PS99 Mobile Pro", "Tentative de chargement de l'interface RayField...", 2)
     
     local success, result
     success, result = pcall(function()
-        return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Orion/main/source'))()
+        return loadstring(game:HttpGet('https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua'))()
     end)
     
     if success and result then
-        notify("PS99 Mobile Pro", "Interface Orion chargée avec succès", 2)
+        notify("PS99 Mobile Pro", "Interface RayField chargée avec succès", 2)
         return result
     else
-        notify("PS99 Mobile Pro", "Échec de chargement de l'interface Orion, utilisation de l'interface de secours", 3)
+        notify("PS99 Mobile Pro", "Échec de chargement de l'interface RayField, utilisation de l'interface de secours", 3)
         useBackupUI = true
         return nil
     end
 end
 
--- Interface principale avec Orion UI
+-- Interface principale avec RayField UI
 local function createMainInterface()
     if useBackupUI then
         createBackupMainUI()
         return
     end
     
-    local OrionLib = loadOrion()
-    if not OrionLib then
+    local Rayfield = loadRayField()
+    if not Rayfield then
         createBackupMainUI()
         return
     end
     
-    local Window = OrionLib:MakeWindow({
-        Name = "PS99 Mobile Pro", 
-        HidePremium = true,
-        SaveConfig = false,
-        IntroEnabled = true,
-        IntroText = "PS99 Mobile Pro",
-        IntroIcon = "rbxassetid://4483345998",
-        Icon = "rbxassetid://4483345998",
-        CloseCallback = function()
-            -- Action lors de la fermeture
-        end
+    local Window = Rayfield:CreateWindow({
+        Name = "PS99 Mobile Pro",
+        LoadingTitle = "PS99 Mobile Pro",
+        LoadingSubtitle = "par zekyu",
+        ConfigurationSaving = {
+            Enabled = false,
+            FolderName = nil,
+            FileName = nil
+        },
+        Discord = {
+            Enabled = false,
+            Invite = "",
+            RememberJoins = false
+        },
+        KeySystem = false
     })
     
     -- Onglet Principal
-    local MainTab = Window:MakeTab({
-        Name = "Fonctionnalités",
-        Icon = "rbxassetid://4483362458",
-        PremiumOnly = false
-    })
+    local MainTab = Window:CreateTab("Fonctionnalités", 4483362458)
     
     -- Anti-AFK Toggle
     local antiAfkEnabled = false
     local toggleAfk = setupAntiAfk()
     
-    MainTab:AddToggle({
+    MainTab:CreateToggle({
         Name = "Anti-AFK",
-        Default = antiAfkEnabled,
+        CurrentValue = antiAfkEnabled,
+        Flag = "AntiAFK",
         Callback = function(Value)
             antiAfkEnabled = Value
             toggleAfk(antiAfkEnabled)
@@ -343,7 +344,7 @@ local function createMainInterface()
     })
     
     -- TP to Event Button
-    MainTab:AddButton({
+    MainTab:CreateButton({
         Name = "TP to Event",
         Callback = function()
             if not hasBeenTeleported then
@@ -362,9 +363,10 @@ local function createMainInterface()
     })
     
     -- Notifications Toggle
-    MainTab:AddToggle({
+    MainTab:CreateToggle({
         Name = "Notifications",
-        Default = showNotifications,
+        CurrentValue = showNotifications,
+        Flag = "Notifications",
         Callback = function(Value)
             showNotifications = Value
             
@@ -375,193 +377,240 @@ local function createMainInterface()
     })
     
     -- Onglet Options
-    local OptionsTab = Window:MakeTab({
-        Name = "Options",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
-    })
+    local OptionsTab = Window:CreateTab("Options", 4483345998)
     
-    OptionsTab:AddSection({
-        Name = "À propos"
-    })
+    OptionsTab:CreateSection("À propos")
     
-    OptionsTab:AddLabel("PS99 Mobile Pro v1.0")
-    OptionsTab:AddLabel("Développé par zekyu")
+    OptionsTab:CreateLabel("PS99 Mobile Pro v1.0")
+    OptionsTab:CreateLabel("Développé par zekyu")
     
-    OptionsTab:AddButton({
+    OptionsTab:CreateButton({
         Name = "Fermer l'interface",
         Callback = function()
-            OrionLib:Destroy()
+            Rayfield:Destroy()
         end
     })
     
-    notify("PS99 Mobile Pro", "Interface Orion chargée avec succès!", 3)
+    notify("PS99 Mobile Pro", "Interface RayField chargée avec succès!", 3)
 end
 
--- Interface de saisie de clé (ScreenGui de base pour compatibilité maximale)
+-- Interface de clé avec RayField
 local function createKeyUI()
     notify("PS99 Mobile Pro", "Création de l'interface de clé...", 2)
     
-    -- Créer ScreenGui pour le système de clé
-    local keyGui = Instance.new("ScreenGui")
-    keyGui.Name = "PS99KeySystem"
-    keyGui.ResetOnSpawn = false
-    
-    -- Rendre l'interface persistante
-    if syn and syn.protect_gui then
-        syn.protect_gui(keyGui)
-        keyGui.Parent = CoreGui
-    elseif gethui then
-        keyGui.Parent = gethui()
-    else
-        keyGui.Parent = CoreGui
-    end
-    
-    -- Cadre principal
-    local mainFrame = Instance.new("Frame")
-    mainFrame.Name = "KeyFrame"
-    mainFrame.Size = UDim2.new(0, 300, 0, 180)
-    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
-    mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-    mainFrame.BorderSizePixel = 0
-    mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-    mainFrame.Active = true
-    mainFrame.Draggable = true
-    mainFrame.Parent = keyGui
-    
-    -- Arrondir les coins
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 10)
-    UICorner.Parent = mainFrame
-    
-    -- Titre
-    local titleBar = Instance.new("Frame")
-    titleBar.Name = "TitleBar"
-    titleBar.Size = UDim2.new(1, 0, 0, 40)
-    titleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-    titleBar.BorderSizePixel = 0
-    titleBar.Parent = mainFrame
-    
-    local titleCorner = Instance.new("UICorner")
-    titleCorner.CornerRadius = UDim.new(0, 10)
-    titleCorner.Parent = titleBar
-    
-    local titleText = Instance.new("TextLabel")
-    titleText.Name = "Title"
-    titleText.Size = UDim2.new(1, -10, 1, 0)
-    titleText.Position = UDim2.new(0, 10, 0, 0)
-    titleText.BackgroundTransparency = 1
-    titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleText.TextSize = 18
-    titleText.Font = Enum.Font.SourceSansBold
-    titleText.Text = "PS99 Mobile Pro - Authentification"
-    titleText.TextXAlignment = Enum.TextXAlignment.Left
-    titleText.Parent = titleBar
-    
-    -- Texte d'instruction
-    local instructionText = Instance.new("TextLabel")
-    instructionText.Name = "Instruction"
-    instructionText.Size = UDim2.new(1, -20, 0, 30)
-    instructionText.Position = UDim2.new(0, 10, 0, 50)
-    instructionText.BackgroundTransparency = 1
-    instructionText.TextColor3 = Color3.fromRGB(255, 255, 255)
-    instructionText.TextSize = 16
-    instructionText.Font = Enum.Font.SourceSans
-    instructionText.Text = "Entrez votre clé d'activation:"
-    instructionText.TextXAlignment = Enum.TextXAlignment.Left
-    instructionText.Parent = mainFrame
-    
-    -- Champ de texte pour la clé (TextBox fonctionnelle sur mobile)
-    local keyInput = Instance.new("TextBox")
-    keyInput.Name = "KeyInput"
-    keyInput.Size = UDim2.new(1, -20, 0, 40)
-    keyInput.Position = UDim2.new(0, 10, 0, 85)
-    keyInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-    keyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-    keyInput.TextSize = 16
-    keyInput.Font = Enum.Font.SourceSans
-    keyInput.PlaceholderText = "Entrez votre clé ici..."
-    keyInput.Text = ""
-    keyInput.ClearTextOnFocus = false
-    keyInput.Parent = mainFrame
-    
-    local keyInputCorner = Instance.new("UICorner")
-    keyInputCorner.CornerRadius = UDim.new(0, 8)
-    keyInputCorner.Parent = keyInput
-    
-    -- Bouton de validation
-    local validateButton = Instance.new("TextButton")
-    validateButton.Name = "ValidateButton"
-    validateButton.Size = UDim2.new(1, -20, 0, 40)
-    validateButton.Position = UDim2.new(0, 10, 0, 135)
-    validateButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-    validateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    validateButton.TextSize = 16
-    validateButton.Font = Enum.Font.SourceSansBold
-    validateButton.Text = "VALIDER LA CLÉ"
-    validateButton.Parent = mainFrame
-    
-    local validateCorner = Instance.new("UICorner")
-    validateCorner.CornerRadius = UDim.new(0, 8)
-    validateCorner.Parent = validateButton
-    
-    -- Fonction pour valider la clé
-    validateButton.MouseButton1Click:Connect(function()
-        local enteredKey = keyInput.Text
+    local Rayfield = loadRayField()
+    if not Rayfield then
+        -- Si RayField ne charge pas, créer une interface de clé de secours
+        local keyGui = Instance.new("ScreenGui")
+        keyGui.Name = "PS99KeySystem"
+        keyGui.ResetOnSpawn = false
         
-        if enteredKey == correctKey then
-            -- Animation de succès
-            validateButton.BackgroundColor3 = Color3.fromRGB(70, 180, 70)
-            validateButton.Text = "CLÉ VALIDE!"
-            
-            -- Notification de succès
-            notify("Succès!", "Authentification réussie!", 2)
-            
-            -- Attendre un peu avant de fermer l'interface de clé
-            wait(1)
-            keyGui:Destroy()
-            
-            -- Charger l'interface principale
-            local success, errorMsg = pcall(createMainInterface)
-            if not success then
-                warn("Erreur lors du chargement de l'interface principale:", errorMsg)
-                notify("Erreur", "Impossible de charger l'interface principale", 3)
-                wait(1)
-                createBackupMainUI() -- Utiliser l'interface de secours en cas d'erreur
-            end
+        -- Rendre l'interface persistante
+        if syn and syn.protect_gui then
+            syn.protect_gui(keyGui)
+            keyGui.Parent = CoreGui
+        elseif gethui then
+            keyGui.Parent = gethui()
         else
-            -- Animation d'échec
-            validateButton.BackgroundColor3 = Color3.fromRGB(180, 70, 70)
-            validateButton.Text = "CLÉ INVALIDE!"
-            
-            -- Notification d'échec
-            notify("Erreur", "Clé invalide! Veuillez réessayer.", 2)
-            
-            -- Effet de secousse
-            local originalPosition = mainFrame.Position
-            for i = 1, 3 do
-                mainFrame.Position = originalPosition + UDim2.new(0.01, 0, 0, 0)
-                wait(0.05)
-                mainFrame.Position = originalPosition - UDim2.new(0.01, 0, 0, 0)
-                wait(0.05)
-            end
-            mainFrame.Position = originalPosition
-            
-            -- Réinitialiser le bouton après un délai
-            wait(1)
-            validateButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-            validateButton.Text = "VALIDER LA CLÉ"
+            keyGui.Parent = CoreGui
         end
-    end)
-    
-    -- Centrer l'interface sur l'écran
-    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
-    
-    notify("PS99 Mobile Pro", "Interface de clé créée, en attente de validation...", 2)
-
-    return keyGui
+        
+        -- Cadre principal
+        local mainFrame = Instance.new("Frame")
+        mainFrame.Name = "KeyFrame"
+        mainFrame.Size = UDim2.new(0, 300, 0, 180)
+        mainFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
+        mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+        mainFrame.BorderSizePixel = 0
+        mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+        mainFrame.Active = true
+        mainFrame.Draggable = true
+        mainFrame.Parent = keyGui
+        
+        -- Arrondir les coins
+        local UICorner = Instance.new("UICorner")
+        UICorner.CornerRadius = UDim.new(0, 10)
+        UICorner.Parent = mainFrame
+        
+        -- Titre
+        local titleBar = Instance.new("Frame")
+        titleBar.Name = "TitleBar"
+        titleBar.Size = UDim2.new(1, 0, 0, 40)
+        titleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+        titleBar.BorderSizePixel = 0
+        titleBar.Parent = mainFrame
+        
+        local titleCorner = Instance.new("UICorner")
+        titleCorner.CornerRadius = UDim.new(0, 10)
+        titleCorner.Parent = titleBar
+        
+        local titleText = Instance.new("TextLabel")
+        titleText.Name = "Title"
+        titleText.Size = UDim2.new(1, -10, 1, 0)
+        titleText.Position = UDim2.new(0, 10, 0, 0)
+        titleText.BackgroundTransparency = 1
+        titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        titleText.TextSize = 18
+        titleText.Font = Enum.Font.SourceSansBold
+        titleText.Text = "PS99 Mobile Pro - Authentification"
+        titleText.TextXAlignment = Enum.TextXAlignment.Left
+        titleText.Parent = titleBar
+        
+        -- Texte d'instruction
+        local instructionText = Instance.new("TextLabel")
+        instructionText.Name = "Instruction"
+        instructionText.Size = UDim2.new(1, -20, 0, 30)
+        instructionText.Position = UDim2.new(0, 10, 0, 50)
+        instructionText.BackgroundTransparency = 1
+        instructionText.TextColor3 = Color3.fromRGB(255, 255, 255)
+        instructionText.TextSize = 16
+        instructionText.Font = Enum.Font.SourceSans
+        instructionText.Text = "Entrez votre clé d'activation:"
+        instructionText.TextXAlignment = Enum.TextXAlignment.Left
+        instructionText.Parent = mainFrame
+        
+        -- Champ de texte pour la clé (TextBox fonctionnelle sur mobile)
+        local keyInput = Instance.new("TextBox")
+        keyInput.Name = "KeyInput"
+        keyInput.Size = UDim2.new(1, -20, 0, 40)
+        keyInput.Position = UDim2.new(0, 10, 0, 85)
+        keyInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+        keyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+        keyInput.TextSize = 16
+        keyInput.Font = Enum.Font.SourceSans
+        keyInput.PlaceholderText = "Entrez votre clé ici..."
+        keyInput.Text = ""
+        keyInput.ClearTextOnFocus = false
+        keyInput.Parent = mainFrame
+        
+        local keyInputCorner = Instance.new("UICorner")
+        keyInputCorner.CornerRadius = UDim.new(0, 8)
+        keyInputCorner.Parent = keyInput
+        
+        -- Bouton de validation
+        local validateButton = Instance.new("TextButton")
+        validateButton.Name = "ValidateButton"
+        validateButton.Size = UDim2.new(1, -20, 0, 40)
+        validateButton.Position = UDim2.new(0, 10, 0, 135)
+        validateButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+        validateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        validateButton.TextSize = 16
+        validateButton.Font = Enum.Font.SourceSansBold
+        validateButton.Text = "VALIDER LA CLÉ"
+        validateButton.Parent = mainFrame
+        
+        local validateCorner = Instance.new("UICorner")
+        validateCorner.CornerRadius = UDim.new(0, 8)
+        validateCorner.Parent = validateButton
+        
+        -- Fonction pour valider la clé
+        validateButton.MouseButton1Click:Connect(function()
+            local enteredKey = keyInput.Text
+            
+            if enteredKey == correctKey then
+                -- Animation de succès
+                validateButton.BackgroundColor3 = Color3.fromRGB(70, 180, 70)
+                validateButton.Text = "CLÉ VALIDE!"
+                
+                -- Notification de succès
+                notify("Succès!", "Authentification réussie!", 2)
+                
+                -- Attendre un peu avant de fermer l'interface de clé
+                wait(1)
+                keyGui:Destroy()
+                
+                -- Charger l'interface principale
+                local success, errorMsg = pcall(createMainInterface)
+                if not success then
+                    warn("Erreur lors du chargement de l'interface principale:", errorMsg)
+                    notify("Erreur", "Impossible de charger l'interface principale", 3)
+                    wait(1)
+                    useBackupUI = true
+                    createBackupMainUI() -- Utiliser l'interface de secours en cas d'erreur
+                end
+            else
+                -- Animation d'échec
+                validateButton.BackgroundColor3 = Color3.fromRGB(180, 70, 70)
+                validateButton.Text = "CLÉ INVALIDE!"
+                
+                -- Notification d'échec
+                notify("Erreur", "Clé invalide! Veuillez réessayer.", 2)
+                
+                -- Effet de secousse
+                local originalPosition = mainFrame.Position
+                for i = 1, 3 do
+                    mainFrame.Position = originalPosition + UDim2.new(0.01, 0, 0, 0)
+                    wait(0.05)
+                    mainFrame.Position = originalPosition - UDim2.new(0.01, 0, 0, 0)
+                    wait(0.05)
+                end
+                mainFrame.Position = originalPosition
+                
+                -- Réinitialiser le bouton après un délai
+                wait(1)
+                validateButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+                validateButton.Text = "VALIDER LA CLÉ"
+            end
+        end)
+        
+        return keyGui
+    else
+        -- Utiliser RayField pour l'interface de clé
+        local Window = Rayfield:CreateWindow({
+            Name = "PS99 Mobile Pro",
+            LoadingTitle = "PS99 Mobile Pro - Système d'authentification",
+            LoadingSubtitle = "par zekyu",
+            ConfigurationSaving = {
+                Enabled = false,
+                FolderName = nil,
+                FileName = nil
+            },
+            Discord = {
+                Enabled = false,
+                Invite = "",
+                RememberJoins = false
+            },
+            KeySystem = true,
+            KeySettings = {
+                Title = "PS99 Mobile Pro - Authentification",
+                Subtitle = "Entrez votre clé d'activation",
+                Note = "La clé vous a été fournie par le développeur",
+                FileName = "PS99Key",
+                SaveKey = false,
+                GrabKeyFromSite = false,
+                Key = {correctKey}
+            }
+        })
+        
+        -- Vérifier si la fenêtre a été créée avec succès
+        if Window then
+            -- Créer un onglet temporaire pour le chargement
+            local LoadingTab = Window:CreateTab("Chargement...", 4483345998)
+            LoadingTab:CreateLabel("Authentification réussie!")
+            LoadingTab:CreateLabel("Chargement de l'interface principale...")
+            
+            -- Attendre un moment avant de charger l'interface principale
+            task.spawn(function()
+                wait(1)
+                Rayfield:Destroy() -- Fermer cette fenêtre
+                
+                -- Charger l'interface principale
+                local success, errorMsg = pcall(createMainInterface)
+                if not success then
+                    warn("Erreur lors du chargement de l'interface principale:", errorMsg)
+                    notify("Erreur", "Impossible de charger l'interface principale", 3)
+                    wait(1)
+                    useBackupUI = true
+                    createBackupMainUI() -- Utiliser l'interface de secours en cas d'erreur
+                end
+            end)
+        else
+            -- Si la création de la fenêtre échoue, revenir à l'interface de secours
+            useBackupUI = true
+            return createBackupMainUI()
+        end
+    end
 end
-
 
 pcall(function()
     notify("PS99 Mobile Pro", "Démarrage de l'application...", 3)
@@ -571,5 +620,8 @@ pcall(function()
     
     if not keyUISuccess then
         notify("Erreur Critique", "Impossible de créer l'interface de saisie de clé", 5)
+        useBackupUI = true
+        wait(1)
+        createBackupMainUI()
     end
 end)
