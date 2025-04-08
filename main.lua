@@ -64,7 +64,7 @@ function loadScript()
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
         
-        tolerance = tolerance or 10 -- Tolérance par défaut de 10 studs
+        tolerance = tolerance or 100 -- Tolérance par défaut de 10 studs
         local distance = (character.HumanoidRootPart.Position - position).Magnitude
         return distance <= tolerance
     end
