@@ -82,10 +82,10 @@ function loadScript()
 
     -- Position du Spawn World
     local spawnWorldPosition = Vector3.new(121.71, 25.54, -204.95)
-    -- Position de l'événement
-    local eventPosition = Vector3.new(174.04, 16.96, -141.07)
-    -- Position après le chargement
-    local postLoadPosition = Vector3.new(-24529.11, 407.52, -1514.52)
+    -- Position du portail pour aller à l'événement
+    local portalPosition = Vector3.new(174.04, 16.96, -141.07)
+    -- Position réelle de l'événement après le chargement
+    local eventPosition = Vector3.new(-24529.11, 407.52, -1514.52)
 
     -- Fonction de téléportation modifiée (téléportation directe)
     local function teleportTo(position)
@@ -146,57 +146,48 @@ function loadScript()
     local EventSection = EventTab:NewSection("Événements actuels")
     
     -- Auto Téléport à l'événement (version toggle uniquement)
-    EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement à l'événement", function(state)
-        getgenv().autoTpEvent = state
+    EventSection:NewToggle("Auto TP Event", "Téléporte une fois au portail de l'événement", function(state)
         if state then
-            spawn(function()
-                -- Variable pour suivre si nous avons déjà détecté le chargement
-                local loadingDetected = false
-                
-                while getgenv().autoTpEvent do
-                    local character = LocalPlayer.Character
-                    if not character or not character:FindFirstChild("HumanoidRootPart") then
-                        wait(1)
-                        continue
-                    end
-                    
-                    local currentPosition = character.HumanoidRootPart.Position
-                    
-                    -- Vérifier si nous sommes proches de la position après chargement
-                    if isAtPosition(postLoadPosition, 30) then
-                        StarterGui:SetCore("SendNotification", {
-                            Title = "Auto TP Event",
-                            Text = "Destination atteinte après chargement",
-                            Duration = 3
-                        })
-                        getgenv().autoTpEvent = false
-                        break
-                    end
-                    
-                    -- Vérifier si nous sommes proche de l'événement (avant le portail)
-                    if isAtPosition(eventPosition, 5) then
-                        if not loadingDetected then
-                            StarterGui:SetCore("SendNotification", {
-                                Title = "Auto TP Event",
-                                Text = "Position d'événement atteinte, attente du chargement...",
-                                Duration = 3
-                            })
-                            loadingDetected = true
-                            -- Attendre pour le chargement
-                            wait(5)
-                        else
-                            -- Nous sommes toujours à la position de l'événement après avoir attendu
-                            -- Continuer à essayer de téléporter
-                            teleportTo(eventPosition)
-                            wait(3)
-                        end
-                    else
-                        -- Nous ne sommes pas à la position de l'événement, donc téléporter
-                        teleportTo(eventPosition)
-                        wait(3)
-                    end
-                end
-            end)
+            -- Vérifier si le joueur est déjà à l'une des positions
+            local character = LocalPlayer.Character
+            if not character or not character:FindFirstChild("HumanoidRootPart") then 
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto TP Event",
+                    Text = "Personnage non trouvé",
+                    Duration = 3
+                })
+                return 
+            end
+            
+            local currentPosition = character.HumanoidRootPart.Position
+            
+            -- Vérifier si nous sommes déjà à l'événement
+            if isAtPosition(eventPosition, 50) then
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto TP Event",
+                    Text = "Vous êtes déjà à l'événement",
+                    Duration = 3
+                })
+                return
+            end
+            
+            -- Vérifier si nous sommes déjà au portail
+            if isAtPosition(portalPosition, 10) then
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto TP Event",
+                    Text = "Vous êtes déjà au portail de l'événement",
+                    Duration = 3
+                })
+                return
+            end
+            
+            -- Nous ne sommes pas encore au portail, donc téléporter une seule fois
+            teleportTo(portalPosition)
+            StarterGui:SetCore("SendNotification", {
+                Title = "Auto TP Event",
+                Text = "Téléporté au portail de l'événement",
+                Duration = 3
+            })
         end
     end)
 
