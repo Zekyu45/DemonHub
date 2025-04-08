@@ -1,5 +1,5 @@
 -- Script PS99 simplifié avec UI amélioré et draggable
--- Version simplifiée avec uniquement AFK et TP Spawn World + Event
+-- Version simplifiée avec AFK, TP Spawn World + Event et Auto TP Event
 
 -- Système de clé d'authentification
 local keySystem = true
@@ -45,27 +45,28 @@ function loadScript()
     -- Position de l'événement
     local eventPosition = Vector3.new(174.04, 16.96, -141.07)
 
-    -- Fonction de téléportation simplifiée
+    -- Fonction de téléportation modifiée (téléportation directe)
     local function teleportTo(position)
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
         
-        -- Téléportation avec hauteur de sécurité
-        local safePosition = Vector3.new(position.X, position.Y + 50, position.Z)
-        character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
-        character.HumanoidRootPart.Anchored = true
-        
-        wait(1)
-        
-        -- Recherche du sol
-        character.HumanoidRootPart.CFrame = CFrame.new(position + Vector3.new(0, 5, 0))
-        wait(0.5)
+        -- Téléportation directe à la position exacte
+        character.HumanoidRootPart.CFrame = CFrame.new(position)
         
         -- Stabilisation
-        character.HumanoidRootPart.Velocity = Vector3.new(0, 5, 0)
-        character.HumanoidRootPart.Anchored = false
+        character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
         
         return true
+    end
+
+    -- Fonction pour vérifier si le joueur est à une position spécifique
+    local function isAtPosition(position, tolerance)
+        local character = LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
+        
+        tolerance = tolerance or 10 -- Tolérance par défaut de 10 studs
+        local distance = (character.HumanoidRootPart.Position - position).Magnitude
+        return distance <= tolerance
     end
 
     -- Auto Téléport au Spawn World
@@ -112,6 +113,30 @@ function loadScript()
                 Text = "Téléporté à l'événement",
                 Duration = 3
             })
+        end
+    end)
+    
+    -- Auto Téléport à l'événement (version toggle)
+    EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement à l'événement jusqu'à l'atteindre", function(state)
+        _G.autoTpEvent = state
+        if state then
+            spawn(function()
+                while _G.autoTpEvent do
+                    -- Vérifier si le joueur est déjà à la position de l'événement
+                    if isAtPosition(eventPosition, 5) then
+                        StarterGui:SetCore("SendNotification", {
+                            Title = "Auto TP Event",
+                            Text = "Vous êtes déjà à l'événement",
+                            Duration = 3
+                        })
+                        break -- Sortir de la boucle si on est déjà à l'événement
+                    else
+                        -- Téléporter le joueur à l'événement
+                        teleportTo(eventPosition)
+                        wait(3) -- Attendre 3 secondes avant de vérifier à nouveau
+                    end
+                end
+            end)
         end
     end)
 
@@ -191,7 +216,7 @@ function createKeyUI()
     StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
     StatusLabel.Size = UDim2.new(1, 0, 0, 30)
     StatusLabel.Font = Enum.Font.Gotham
-    StatusLabel.Text = "Entrez la clé: zekyu"
+    StatusLabel.Text = "Entrez la clé: ""
     StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     StatusLabel.TextSize = 14.000
     
@@ -204,7 +229,7 @@ function createKeyUI()
             KeyUI:Destroy()
             loadScript()
         else
-            StatusLabel.Text = "Clé invalide! Essayez 'zekyu'"
+            StatusLabel.Text = "Clé invalide!"
             StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
         end
     end
