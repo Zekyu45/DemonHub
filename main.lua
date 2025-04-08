@@ -112,7 +112,6 @@ local function createUI()
     
     -- Setup Anti-AFK
     local toggleAfk = setupAntiAfk()
-    
     -- Onglet Fonctionnalités
     local MainTab = Window:CreateTab("Fonctionnalités", "rbxassetid://4483362458")
     local MainSection = MainTab:CreateSection("Fonctions Principales")
@@ -208,50 +207,18 @@ local function createKeyUI()
     KeyWindow = Fluent:CreateWindow(keyOptions)
     
     -- Onglet Authentification
-    local AuthTab = KeyWindow:CreateTab("Authentification", "rbxassetid://4483345998")
+    local AuthTab = KeyWindow:CreateTab("Tab", "rbxassetid://4483345998")
     
     -- Section pour la clé
     local KeySection = AuthTab:CreateSection("Entrez votre clé")
     
-    -- Afficher la clé (pour démo)
-    AuthTab:CreateParagraph({
-        Title = "Clé de vérification",
-        Content = "La clé est: " .. correctKey
-    })
-    
     -- Input pour la clé
-    local keyInput
-    keyInput = AuthTab:CreateInput({
+    local keyInput = AuthTab:CreateInput({
         Title = "Clé d'activation",
-        Default = correctKey, -- Pré-remplir avec la clé correcte
+        Default = "",
         Placeholder = "Entrez votre clé ici...",
         Callback = function(Text)
-            if Text == correctKey then
-                Fluent:Notify({
-                    Title = "Authentification réussie",
-                    Content = "Chargement de l'interface principale...",
-                    Duration = 3
-                })
-                
-                -- Attendre un peu avant de charger l'interface principale
-                task.spawn(function()
-                    wait(1.5)
-                    KeyWindow:Destroy()
-                    
-                    local success, errorMsg = pcall(createUI)
-                    if not success then
-                        wait(1)
-                        notify("Erreur", "Impossible de charger le script: " .. tostring(errorMsg), 5)
-                        createKeyUI() -- Retourner à l'interface de clé en cas d'erreur
-                    end
-                end)
-            else
-                Fluent:Notify({
-                    Title = "Clé invalide",
-                    Content = "Veuillez réessayer avec la bonne clé",
-                    Duration = 2
-                })
-            end
+            -- La validation se fera avec le bouton
         end
     })
     
@@ -266,16 +233,19 @@ local function createKeyUI()
                     Duration = 3
                 })
                 
-                -- Attendre un peu avant de charger l'interface principale
+                -- Détruire la fenêtre de clé et charger l'interface principale
+                KeyWindow:Destroy()
+                KeyWindow = nil
+                
+                -- Petit délai avant de charger l'interface principale
                 task.spawn(function()
-                    wait(1.5)
-                    KeyWindow:Destroy()
-                    
+                    wait(1)
                     local success, errorMsg = pcall(createUI)
                     if not success then
-                        wait(1)
                         notify("Erreur", "Impossible de charger le script: " .. tostring(errorMsg), 5)
-                        createKeyUI() -- Retourner à l'interface de clé en cas d'erreur
+                        -- Recréer l'interface de clé en cas d'erreur
+                        wait(1)
+                        createKeyUI()
                     end
                 end)
             else
@@ -293,10 +263,10 @@ end
 
 -- Démarrage de l'application
 pcall(function()
-    -- Essayer de charger Fluent UI et l'interface
+    -- Message de démarrage
+    notify("PS99 Mobile Pro", "Chargement du système d'authentification...", 3)
+    
+    -- Charger l'interface de clé
+    wait(1)
     createKeyUI()
-    
-    -- Message de confirmation
-    notify("PS99 Mobile Pro", "Script chargé avec succès!", 3)
 end)
-    
