@@ -1,4 +1,4 @@
--- Script PS99 Mobile Pro - UI Rectangulaire Améliorée
+-- Script PS99 Mobile Pro - UI Rayfield
 
 -- Variables principales
 local autoTpEventActive = false
@@ -15,6 +15,11 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Position du portail pour aller à l'événement
 local portalPosition = Vector3.new(174.04, 16.96, -141.07)
+
+-- Configuration de Rayfield (si pas encore chargé)
+if not _G.Rayfield then
+    _G.Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+end
 
 -- Fonction notification
 local function notify(title, text, duration)
@@ -82,531 +87,171 @@ local function teleportTo(position)
     return true
 end
 
--- Création de l'UI
+-- Création de l'UI avec Rayfield
 local function createUI()
-    -- Supprimer l'ancienne interface si elle existe
-    if game:GetService("CoreGui"):FindFirstChild("PS99MobileProUI") then
-        game:GetService("CoreGui"):FindFirstChild("PS99MobileProUI"):Destroy()
+    -- Suppression de l'ancienne interface Rayfield si elle existe
+    if _G.Window then
+        _G.Window:Destroy()
     end
     
-    -- Interface principale
-    local ScreenGui = Instance.new("ScreenGui")
-    ScreenGui.Name = "PS99MobileProUI"
-    ScreenGui.ResetOnSpawn = false
-    ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    -- Création de la fenêtre principale
+    _G.Window = _G.Rayfield:CreateWindow({
+        Name = "PS99 Mobile Pro",
+        LoadingTitle = "PS99 Mobile Pro",
+        LoadingSubtitle = "par zekyu",
+        ConfigurationSaving = {
+            Enabled = true,
+            FolderName = "PS99MobilePro",
+            FileName = "ConfigPS99"
+        },
+        KeySystem = false, -- Nous gérons notre propre système de clé
+        KeySettings = {
+            Title = "PS99 Mobile Pro",
+            Subtitle = "Système de clé",
+            Note = "La clé est: zekyu",
+            Key = "zekyu"
+        }
+    })
     
-    -- Contournement de la protection CoreGui
-    pcall(function()
-        ScreenGui.Parent = game:GetService("CoreGui")
-    end)
-    
-    if not ScreenGui.Parent then
-        ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    end
-    
-    -- Frame principale - Vraiment rectangulaire et centrée
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 400, 0, 200) -- Plus large et moins haute
-    MainFrame.Position = UDim2.new(0.5, -200, 0.5, -100) -- Parfaitement centrée
-    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-    MainFrame.BorderSizePixel = 0
-    MainFrame.Parent = ScreenGui
-    
-    -- Coins arrondis
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 8)
-    UICorner.Parent = MainFrame
-    
-    -- Barre de titre
-    local TitleBar = Instance.new("Frame")
-    TitleBar.Name = "TitleBar"
-    TitleBar.Size = UDim2.new(1, 0, 0, 30)
-    TitleBar.BackgroundColor3 = Color3.fromRGB(40, 40, 70)
-    TitleBar.BorderSizePixel = 0
-    TitleBar.Parent = MainFrame
-    
-    local TitleCorner = Instance.new("UICorner")
-    TitleCorner.CornerRadius = UDim.new(0, 8)
-    TitleCorner.Parent = TitleBar
-    
-    -- Titre
-    local Title = Instance.new("TextLabel")
-    Title.Name = "Title"
-    Title.Size = UDim2.new(1, -30, 1, 0)
-    Title.Position = UDim2.new(0, 10, 0, 0)
-    Title.BackgroundTransparency = 1
-    Title.Font = Enum.Font.GothamBold
-    Title.Text = "PS99 Mobile Pro"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 14
-    Title.TextXAlignment = Enum.TextXAlignment.Left
-    Title.Parent = TitleBar
-    
-    -- Bouton de fermeture
-    local CloseButton = Instance.new("TextButton")
-    CloseButton.Name = "CloseButton"
-    CloseButton.Size = UDim2.new(0, 20, 0, 20)
-    CloseButton.Position = UDim2.new(1, -25, 0, 5)
-    CloseButton.BackgroundColor3 = Color3.fromRGB(255, 70, 70)
-    CloseButton.BorderSizePixel = 0
-    CloseButton.Font = Enum.Font.GothamBold
-    CloseButton.Text = "X"
-    CloseButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    CloseButton.TextSize = 12
-    CloseButton.Parent = TitleBar
-    
-    local CloseCorner = Instance.new("UICorner")
-    CloseCorner.CornerRadius = UDim.new(0, 10)
-    CloseCorner.Parent = CloseButton
-    
-    -- Fermeture de l'interface
-    CloseButton.MouseButton1Click:Connect(function()
-        ScreenGui:Destroy()
-    end)
-    
-    -- Drag functionality
-    local dragging = false
-    local dragInput
-    local dragStart
-    local startPos
-    
-    TitleBar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = MainFrame.Position
-        end
-    end)
-    
-    TitleBar.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = false
-        end
-    end)
-    
-    UserInputService.InputChanged:Connect(function(input)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            dragInput = input
-            local delta = input.Position - dragStart
-            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
-        end
-    end)
-    -- Conteneur principal - Réorganisé pour un format plus rectangulaire
-    local ContentFrame = Instance.new("Frame")
-    ContentFrame.Name = "ContentFrame"
-    ContentFrame.Size = UDim2.new(1, -20, 1, -40)
-    ContentFrame.Position = UDim2.new(0, 10, 0, 35)
-    ContentFrame.BackgroundTransparency = 1
-    ContentFrame.Parent = MainFrame
-    
-    -- Créer des colonnes pour l'UI rectangulaire
-    local leftColumn = Instance.new("Frame")
-    leftColumn.Name = "LeftColumn"
-    leftColumn.Size = UDim2.new(0.48, 0, 1, 0)
-    leftColumn.BackgroundTransparency = 1
-    leftColumn.Parent = ContentFrame
-    
-    local rightColumn = Instance.new("Frame")
-    rightColumn.Name = "RightColumn"
-    rightColumn.Size = UDim2.new(0.48, 0)
-    rightColumn.Position = UDim2.new(0.52, 0, 0, 0)
-    rightColumn.BackgroundTransparency = 1
-    rightColumn.Parent = ContentFrame
-    
-    -- Layout pour organiser les éléments dans chaque colonne
-    local leftLayout = Instance.new("UIListLayout")
-    leftLayout.Padding = UDim.new(0, 10)
-    leftLayout.Parent = leftColumn
-    
-    local rightLayout = Instance.new("UIListLayout")
-    rightLayout.Padding = UDim.new(0, 10)
-    rightLayout.Parent = rightColumn
-    
-    -- Section fonctions principales
-    local function createSection(parent, title)
-        local section = Instance.new("Frame")
-        section.Name = title .. "Section"
-        section.Size = UDim2.new(1, 0, 0, 20)
-        section.BackgroundTransparency = 1
-        section.Parent = parent
-        
-        local sectionTitle = Instance.new("TextLabel")
-        sectionTitle.Name = "Title"
-        sectionTitle.Size = UDim2.new(1, 0, 0, 20)
-        sectionTitle.BackgroundTransparency = 1
-        sectionTitle.Font = Enum.Font.GothamSemibold
-        sectionTitle.Text = title
-        sectionTitle.TextColor3 = Color3.fromRGB(255, 255, 255)
-        sectionTitle.TextSize = 12
-        sectionTitle.TextXAlignment = Enum.TextXAlignment.Left
-        sectionTitle.Parent = section
-        
-        local separator = Instance.new("Frame")
-        separator.Name = "Separator"
-        separator.Size = UDim2.new(1, 0, 0, 1)
-        separator.Position = UDim2.new(0, 0, 1, 0)
-        separator.BackgroundColor3 = Color3.fromRGB(100, 100, 150)
-        separator.BorderSizePixel = 0
-        separator.Parent = sectionTitle
-        
-        return section
-    end
-    
-    -- Créer un toggle
-    local function createToggle(parent, text, callback)
-        local toggleFrame = Instance.new("Frame")
-        toggleFrame.Name = text .. "Toggle"
-        toggleFrame.Size = UDim2.new(1, 0, 0, 30)
-        toggleFrame.BackgroundTransparency = 1
-        toggleFrame.Parent = parent
-        
-        local toggleLabel = Instance.new("TextLabel")
-        toggleLabel.Name = "Label"
-        toggleLabel.Size = UDim2.new(0.7, 0, 1, 0)
-        toggleLabel.BackgroundTransparency = 1
-        toggleLabel.Font = Enum.Font.Gotham
-        toggleLabel.Text = text
-        toggleLabel.TextColor3 = Color3.fromRGB(220, 220, 220)
-        toggleLabel.TextSize = 12
-        toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-        toggleLabel.Parent = toggleFrame
-        
-        local toggleButton = Instance.new("Frame")
-        toggleButton.Name = "Button"
-        toggleButton.Size = UDim2.new(0, 40, 0, 20)
-        toggleButton.Position = UDim2.new(1, -40, 0.5, -10)
-        toggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 90)
-        toggleButton.BorderSizePixel = 0
-        toggleButton.Parent = toggleFrame
-        
-        local toggleCorner = Instance.new("UICorner")
-        toggleCorner.CornerRadius = UDim.new(0, 10)
-        toggleCorner.Parent = toggleButton
-        
-        local toggleIndicator = Instance.new("Frame")
-        toggleIndicator.Name = "Indicator"
-        toggleIndicator.Size = UDim2.new(0, 16, 0, 16)
-        toggleIndicator.Position = UDim2.new(0, 2, 0.5, -8)
-        toggleIndicator.BackgroundColor3 = Color3.fromRGB(200, 200, 200)
-        toggleIndicator.BorderSizePixel = 0
-        toggleIndicator.Parent = toggleButton
-        
-        local indicatorCorner = Instance.new("UICorner")
-        indicatorCorner.CornerRadius = UDim.new(1, 0)
-        indicatorCorner.Parent = toggleIndicator
-        
-        local toggled = false
-        
-        local function updateToggle()
-            if toggled then
-                toggleButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-                local goal = {}
-                goal.Position = UDim2.new(1, -18, 0.5, -8)
-                
-                local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-                local tween = TweenService:Create(toggleIndicator, tweenInfo, goal)
-                tween:Play()
-            else
-                toggleButton.BackgroundColor3 = Color3.fromRGB(60, 60, 90)
-                local goal = {}
-                goal.Position = UDim2.new(0, 2, 0.5, -8)
-                
-                local tweenInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-                local tween = TweenService:Create(toggleIndicator, tweenInfo, goal)
-                tween:Play()
-            end
-        end
-        
-        toggleButton.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                toggled = not toggled
-                updateToggle()
-                if callback then
-                    callback(toggled)
-                end
-            end
-        end)
-        
-        toggleFrame.InputBegan:Connect(function(input)
-            if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-                toggled = not toggled
-                updateToggle()
-                if callback then
-                    callback(toggled)
-                end
-            end
-        end)
-        
-        local toggle = {}
-        function toggle:SetState(state)
-            toggled = state
-            updateToggle()
-            if callback then
-                callback(toggled)
-            end
-        end
-        
-        return toggle
-    end
-    
-    -- Créer un bouton
-    local function createButton(parent, text, callback)
-        local buttonFrame = Instance.new("Frame")
-        buttonFrame.Name = text .. "Frame"
-        buttonFrame.Size = UDim2.new(1, 0, 0, 30)
-        buttonFrame.BackgroundTransparency = 1
-        buttonFrame.Parent = parent
-        
-        local button = Instance.new("TextButton")
-        button.Name = "Button"
-        button.Size = UDim2.new(1, 0, 1, 0)
-        button.BackgroundColor3 = Color3.fromRGB(60, 60, 100)
-        button.BorderSizePixel = 0
-        button.Font = Enum.Font.Gotham
-        button.Text = text
-        button.TextColor3 = Color3.fromRGB(255, 255, 255)
-        button.TextSize = 12
-        button.Parent = buttonFrame
-        
-        local buttonCorner = Instance.new("UICorner")
-        buttonCorner.CornerRadius = UDim.new(0, 5)
-        buttonCorner.Parent = button
-        
-        button.MouseEnter:Connect(function()
-            button.BackgroundColor3 = Color3.fromRGB(80, 80, 130)
-        end)
-        
-        button.MouseLeave:Connect(function()
-            button.BackgroundColor3 = Color3.fromRGB(60, 60, 100)
-        end)
-        
-        button.MouseButton1Down:Connect(function()
-            button.BackgroundColor3 = Color3.fromRGB(40, 40, 80)
-        end)
-        
-        button.MouseButton1Up:Connect(function()
-            button.BackgroundColor3 = Color3.fromRGB(80, 80, 130)
-        end)
-        
-        button.MouseButton1Click:Connect(function()
-            if callback then
-                callback()
-            end
-        end)
-    end
-    
-    -- Créer les sections dans les colonnes
-    local mainSection = createSection(leftColumn, "Fonctionnalités")
-    local eventSection = createSection(rightColumn, "Événements")
-    local optionsSection = createSection(leftColumn, "Options")
+    -- Création des onglets
+    local MainTab = _G.Window:CreateTab("Fonctionnalités", 4483362458) -- ID d'une icône de fonction
+    local EventTab = _G.Window:CreateTab("Événements", 4483364237) -- ID d'une icône d'événement
+    local SettingsTab = _G.Window:CreateTab("Options", 4483345998) -- ID d'une icône de paramètres
     
     -- Setup Anti-AFK
     local toggleAfk = setupAntiAfk()
     
-    -- Ajouter le toggle Anti-AFK
-    createToggle(mainSection, "Anti-AFK", function(state)
-        toggleAfk(state)
-    end)
+    -- Section Fonctionnalités Principales
+    MainTab:CreateSection("Fonctions Principales")
+    
+    -- Toggle Anti-AFK
+    MainTab:CreateToggle({
+        Name = "Anti-AFK",
+        CurrentValue = false,
+        Flag = "ToggleAntiAFK",
+        Callback = function(Value)
+            toggleAfk(Value)
+        end
+    })
+    
+    -- Section Événements
+    EventTab:CreateSection("Fonctions d'Événements")
     
     -- TP Event toggle - MODIFIÉ POUR NE TÉLÉPORTER QU'UNE FOIS
-    createToggle(eventSection, "TP to Event", function(state)
-        autoTpEventActive = state
-        
-        if state and not hasBeenTeleported then
-            local character = LocalPlayer.Character
-            if character and character:FindFirstChild("HumanoidRootPart") then
-                teleportTo(portalPosition)
-                hasBeenTeleported = true
-                notify("Event", "Téléportation au portail d'événement", 2)
-            else
-                notify("Erreur", "Personnage non disponible pour la téléportation", 2)
+    EventTab:CreateToggle({
+        Name = "TP to Event",
+        CurrentValue = false,
+        Flag = "ToggleTPEvent",
+        Callback = function(Value)
+            autoTpEventActive = Value
+            
+            if Value and not hasBeenTeleported then
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    teleportTo(portalPosition)
+                    hasBeenTeleported = true
+                    notify("Event", "Téléportation au portail d'événement", 2)
+                else
+                    notify("Erreur", "Personnage non disponible pour la téléportation", 2)
+                end
+            elseif Value and hasBeenTeleported then
+                notify("Event", "Vous avez déjà été téléporté à l'événement", 2)
+            elseif not Value then
+                hasBeenTeleported = false
+                notify("Event", "TP to Event désactivé - Réinitialisé", 2)
             end
-        elseif state and hasBeenTeleported then
-            notify("Event", "Vous avez déjà été téléporté à l'événement", 2)
-        elseif not state then
-            hasBeenTeleported = false
-            notify("Event", "TP to Event désactivé - Réinitialisé", 2)
         end
-    end)
+    })
+-- Section Options
+    SettingsTab:CreateSection("Paramètres")
     
     -- Toggle pour les notifications
-    createToggle(optionsSection, "Notifications", function(state)
-        showNotifications = state
-        if state then
-            notify("Notifications", "Notifications activées", 2)
+    SettingsTab:CreateToggle({
+        Name = "Notifications",
+        CurrentValue = true,
+        Flag = "ToggleNotifications",
+        Callback = function(Value)
+            showNotifications = Value
+            if Value then
+                notify("Notifications", "Notifications activées", 2)
+            end
         end
-    end)
+    })
     
     -- Bouton pour fermer l'interface
-    createButton(optionsSection, "Fermer", function()
-        ScreenGui:Destroy()
-    end)
+    SettingsTab:CreateButton({
+        Name = "Fermer l'interface",
+        Callback = function()
+            _G.Window:Destroy()
+        end
+    })
     
-    return ScreenGui
+    return _G.Window
 end
 
--- Interface de saisie de clé
+-- Interface de saisie de clé avec Rayfield
 local function createKeyUI()
-    -- Suppression des anciennes interfaces
-    pcall(function()
-        for _, gui in pairs(game:GetService("Players").LocalPlayer.PlayerGui:GetChildren()) do
-            if gui.Name == "KeyUI" then gui:Destroy() end
-        end
-        
-        if game:GetService("CoreGui"):FindFirstChild("KeyUI") then
-            game:GetService("CoreGui"):FindFirstChild("KeyUI"):Destroy()
-        end
-    end)
-    
-    -- Création de l'interface GUI - Version rectangulaire
-    local KeyUI = Instance.new("ScreenGui")
-    KeyUI.Name = "KeyUI"
-    KeyUI.ResetOnSpawn = false
-    KeyUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    KeyUI.DisplayOrder = 999
-    
-    pcall(function()
-        KeyUI.Parent = game:GetService("CoreGui")
-    end)
-    
-    if not KeyUI.Parent then
-        KeyUI.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
+    -- Suppression des anciennes interfaces Rayfield
+    if _G.KeyWindow then
+        _G.KeyWindow:Destroy()
     end
-        
-    local MainFrame = Instance.new("Frame")
-    MainFrame.Name = "MainFrame"
-    MainFrame.Parent = KeyUI
-    MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
-    MainFrame.BorderSizePixel = 2
-    MainFrame.BorderColor3 = Color3.fromRGB(0, 150, 255)
-    MainFrame.Position = UDim2.new(0.5, -200, 0.5, -100) -- Centré
-    MainFrame.Size = UDim2.new(0, 400, 0, 200) -- Plus rectangulaire
-    MainFrame.Active = true
-    MainFrame.Draggable = true
     
-    local UICorner = Instance.new("UICorner")
-    UICorner.CornerRadius = UDim.new(0, 8)
-    UICorner.Parent = MainFrame
-
-    local Title = Instance.new("TextLabel")
-    Title.Name = "Title"
-    Title.Parent = MainFrame
-    Title.BackgroundColor3 = Color3.fromRGB(20, 20, 40)
-    Title.BorderSizePixel = 0
-    Title.Size = UDim2.new(1, 0, 0, 30)
-    Title.Font = Enum.Font.GothamBold
-    Title.Text = "PS99 Mobile Pro - Authentification"
-    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
-    Title.TextSize = 18
+    -- Création de la fenêtre de clé
+    _G.KeyWindow = _G.Rayfield:CreateWindow({
+        Name = "PS99 Mobile Pro - Authentification",
+        LoadingTitle = "PS99 Mobile Pro",
+        LoadingSubtitle = "Vérification de la clé...",
+        ConfigurationSaving = {
+            Enabled = false,
+        },
+        KeySystem = true, -- Utilisation du système de clé intégré de Rayfield
+        KeySettings = {
+            Title = "PS99 Mobile Pro - Authentification",
+            Subtitle = "Authentification requise",
+            Note = "La clé est: zekyu",
+            Key = correctKey,
+            Actions = {
+                [1] = {
+                    Text = "La clé est affichée dans la note ci-dessus",
+                    OnPress = function()
+                        setclipboard(correctKey)
+                        notify("Clé", "Clé copiée dans le presse-papiers!", 2)
+                    end,
+                }
+            }
+        }
+    })
     
-    local UICornerTitle = Instance.new("UICorner")
-    UICornerTitle.CornerRadius = UDim.new(0, 8)
-    UICornerTitle.Parent = Title
+    -- Après authentification réussie, charger l'interface principale
+    _G.KeyWindow:Prompt({
+        Title = "Authentification réussie",
+        SubTitle = "Chargement de l'interface principale...",
+        Actions = {
+            Accept = {
+                Name = "OK",
+                Callback = function()
+                    _G.KeyWindow:Destroy()
+                    local success, errorMsg = pcall(createUI)
+                    if not success then
+                        wait(1)
+                        notify("Erreur", "Impossible de charger le script: " .. tostring(errorMsg), 5)
+                        createKeyUI() -- Retourner à l'interface de clé en cas d'erreur
+                    end
+                end
+            }
+        }
+    })
     
-    local KeyLabel = Instance.new("TextLabel")
-    KeyLabel.Name = "KeyLabel"
-    KeyLabel.Parent = MainFrame
-    KeyLabel.BackgroundTransparency = 1
-    KeyLabel.Position = UDim2.new(0.1, 0, 0.17, 0)
-    KeyLabel.Size = UDim2.new(0.8, 0, 0, 30)
-    KeyLabel.Font = Enum.Font.GothamBold
-    KeyLabel.Text = "La clé est: zekyu"
-    KeyLabel.TextColor3 = Color3.fromRGB(255, 215, 0)
-    KeyLabel.TextSize = 16
-
-    local KeyInput = Instance.new("TextBox")
-    KeyInput.Name = "KeyInput"
-    KeyInput.Parent = MainFrame
-    KeyInput.BackgroundColor3 = Color3.fromRGB(50, 50, 70)
-    KeyInput.BorderSizePixel = 1
-    KeyInput.Position = UDim2.new(0.1, 0, 0.4, 0)
-    KeyInput.Size = UDim2.new(0.8, 0, 0, 40)
-    KeyInput.Font = Enum.Font.Gotham
-    KeyInput.PlaceholderText = "Entrez votre clé ici..."
-    KeyInput.Text = correctKey -- Pré-remplir avec la clé correcte
-    KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-    KeyInput.TextSize = 16
-    KeyInput.ClearTextOnFocus = false
-    
-    local UICornerInput = Instance.new("UICorner")
-    UICornerInput.CornerRadius = UDim.new(0, 6)
-    UICornerInput.Parent = KeyInput
-
-    local SubmitButton = Instance.new("TextButton")
-    SubmitButton.Name = "SubmitButton"
-    SubmitButton.Parent = MainFrame
-    SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-    SubmitButton.BorderSizePixel = 0
-    SubmitButton.Position = UDim2.new(0.25, 0, 0.6, 0)
-    SubmitButton.Size = UDim2.new(0.5, 0, 0, 40)
-    SubmitButton.Font = Enum.Font.GothamBold
-    SubmitButton.Text = "Valider"
-    SubmitButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    SubmitButton.TextSize = 18
-    
-    local UICornerButton = Instance.new("UICorner")
-    UICornerButton.CornerRadius = UDim.new(0, 6)
-    UICornerButton.Parent = SubmitButton
-
-    local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Name = "StatusLabel"
-    StatusLabel.Parent = MainFrame
-    StatusLabel.BackgroundTransparency = 1
-    StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
-    StatusLabel.Size = UDim2.new(1, 0, 0, 30)
-    StatusLabel.Font = Enum.Font.Gotham
-    StatusLabel.Text = "Entrez la clé puis cliquez sur Valider"
-    StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    StatusLabel.TextSize = 14
-    
-    SubmitButton.MouseEnter:Connect(function()
-        SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 140, 240)
-    end)
-    
-    SubmitButton.MouseLeave:Connect(function()
-        SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
-    end)
-    
-    SubmitButton.MouseButton1Click:Connect(function()
-        if KeyInput.Text == correctKey then
-            StatusLabel.Text = "Clé valide! Chargement..."
-            StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
-            
-            for i = 1, 3 do
-                wait(0.3)
-                StatusLabel.Text = StatusLabel.Text .. "."
-            end
-            
-            wait(0.5)
-            KeyUI:Destroy()
-            
-            local success, errorMsg = pcall(createUI)
-            if not success then
-                wait(1)
-                local errorUI = createKeyUI()
-                local statusLabel = errorUI.MainFrame.StatusLabel
-                statusLabel.Text = "ERREUR: Impossible de charger le script"
-                statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-                wait(3)
-                statusLabel.Text = "Erreur: " .. tostring(errorMsg)
-            end
-        else
-            StatusLabel.Text = "Clé invalide! Essayez à nouveau."
-            StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
-        end
-    end)
-    
-    KeyInput.FocusLost:Connect(function(enterPressed)
-        if enterPressed then
-            SubmitButton.MouseButton1Click:Fire()
-        end
-    end)
-    
-    return KeyUI
+    return _G.KeyWindow
 end
 
 -- Démarrage de l'application
+-- Charger Rayfield si ce n'est pas déjà fait
+if not _G.Rayfield then
+    _G.Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+end
+
+-- Lancer l'interface de clé
 createKeyUI()
 
 -- Message de confirmation
