@@ -84,6 +84,8 @@ function loadScript()
     local spawnWorldPosition = Vector3.new(121.71, 25.54, -204.95)
     -- Position de l'événement
     local eventPosition = Vector3.new(174.04, 16.96, -141.07)
+    -- Position après le chargement
+    local postLoadPosition = Vector3.new(-24529.11, 407.52, -1514.52)
 
     -- Fonction de téléportation modifiée (téléportation directe)
     local function teleportTo(position)
@@ -143,38 +145,55 @@ function loadScript()
     local EventTab = Window:NewTab("Événements")
     local EventSection = EventTab:NewSection("Événements actuels")
     
-    -- Téléportation à l'événement
-    EventSection:NewButton("Téléport to Event", "Téléporte à l'événement actuel", function()
-        local teleportSuccess = teleportTo(eventPosition)
-        
-        if teleportSuccess then
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Téléporté à l'événement",
-                Duration = 3
-            })
-        end
-    end)
-    
-    -- Auto Téléport à l'événement (version toggle)
-    EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement à l'événement jusqu'à l'atteindre", function(state)
+    -- Auto Téléport à l'événement (version toggle uniquement)
+    EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement à l'événement", function(state)
         getgenv().autoTpEvent = state
         if state then
             spawn(function()
+                -- Variable pour suivre si nous avons déjà détecté le chargement
+                local loadingDetected = false
+                
                 while getgenv().autoTpEvent do
-                    -- Vérifier si le joueur est déjà à la position de l'événement
-                    if isAtPosition(eventPosition, 5) then
+                    local character = LocalPlayer.Character
+                    if not character or not character:FindFirstChild("HumanoidRootPart") then
+                        wait(1)
+                        continue
+                    end
+                    
+                    local currentPosition = character.HumanoidRootPart.Position
+                    
+                    -- Vérifier si nous sommes proches de la position après chargement
+                    if isAtPosition(postLoadPosition, 30) then
                         StarterGui:SetCore("SendNotification", {
                             Title = "Auto TP Event",
-                            Text = "Vous êtes déjà à l'événement",
+                            Text = "Destination atteinte après chargement",
                             Duration = 3
                         })
                         getgenv().autoTpEvent = false
-                        break -- Sortir de la boucle si on est déjà à l'événement
+                        break
+                    end
+                    
+                    -- Vérifier si nous sommes proche de l'événement (avant le portail)
+                    if isAtPosition(eventPosition, 5) then
+                        if not loadingDetected then
+                            StarterGui:SetCore("SendNotification", {
+                                Title = "Auto TP Event",
+                                Text = "Position d'événement atteinte, attente du chargement...",
+                                Duration = 3
+                            })
+                            loadingDetected = true
+                            -- Attendre pour le chargement
+                            wait(5)
+                        else
+                            -- Nous sommes toujours à la position de l'événement après avoir attendu
+                            -- Continuer à essayer de téléporter
+                            teleportTo(eventPosition)
+                            wait(3)
+                        end
                     else
-                        -- Téléporter le joueur à l'événement
+                        -- Nous ne sommes pas à la position de l'événement, donc téléporter
                         teleportTo(eventPosition)
-                        wait(3) -- Attendre 3 secondes avant de vérifier à nouveau
+                        wait(3)
                     end
                 end
             end)
