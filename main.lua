@@ -1,10 +1,10 @@
--- Script PS99 Mobile Pro - UI Simplifié
+-- Script PS99 Mobile Pro - UI Rectangulaire Améliorée
 
 -- Variables principales
 local autoTpEventActive = false
 local showNotifications = true
-local autoTpEventCoroutine
 local correctKey = "zekyu"
+local hasBeenTeleported = false -- Variable pour tracker si le téléport a déjà été effectué
 
 -- Services
 local Players = game:GetService("Players")
@@ -15,8 +15,6 @@ local LocalPlayer = Players.LocalPlayer
 
 -- Position du portail pour aller à l'événement
 local portalPosition = Vector3.new(174.04, 16.96, -141.07)
-local lastPortalTpTime = 0
-local portalTpCooldown = 5 -- 5 secondes entre les téléportations
 
 -- Fonction notification
 local function notify(title, text, duration)
@@ -57,7 +55,7 @@ local function setupAntiAfk()
     end
 end
 
--- Fonction de téléportation
+-- Fonction de téléportation - Modifiée pour ne téléporter qu'une seule fois
 local function teleportTo(position)
     local character = LocalPlayer.Character
     if not character or not character:FindFirstChild("HumanoidRootPart") then 
@@ -106,11 +104,11 @@ local function createUI()
         ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
     end
     
-    -- Frame principale - MODIFIÉE POUR ÊTRE RECTANGULAIRE ET CENTRÉE
+    -- Frame principale - Vraiment rectangulaire et centrée
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
-    MainFrame.Size = UDim2.new(0, 300, 0, 220) -- Taille rectangulaire
-    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -110) -- Centrée sur l'écran
+    MainFrame.Size = UDim2.new(0, 400, 0, 200) -- Plus large et moins haute
+    MainFrame.Position = UDim2.new(0.5, -200, 0.5, -100) -- Parfaitement centrée
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
     MainFrame.BorderSizePixel = 0
     MainFrame.Parent = ScreenGui
@@ -194,8 +192,7 @@ local function createUI()
             MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
         end
     end)
-    
-    -- Conteneur principal
+    -- Conteneur principal - Réorganisé pour un format plus rectangulaire
     local ContentFrame = Instance.new("Frame")
     ContentFrame.Name = "ContentFrame"
     ContentFrame.Size = UDim2.new(1, -20, 1, -40)
@@ -203,17 +200,36 @@ local function createUI()
     ContentFrame.BackgroundTransparency = 1
     ContentFrame.Parent = MainFrame
     
-    -- Layout pour organiser les éléments
-    local ListLayout = Instance.new("UIListLayout")
-    ListLayout.Padding = UDim.new(0, 10)
-    ListLayout.Parent = ContentFrame
+    -- Créer des colonnes pour l'UI rectangulaire
+    local leftColumn = Instance.new("Frame")
+    leftColumn.Name = "LeftColumn"
+    leftColumn.Size = UDim2.new(0.48, 0, 1, 0)
+    leftColumn.BackgroundTransparency = 1
+    leftColumn.Parent = ContentFrame
+    
+    local rightColumn = Instance.new("Frame")
+    rightColumn.Name = "RightColumn"
+    rightColumn.Size = UDim2.new(0.48, 0)
+    rightColumn.Position = UDim2.new(0.52, 0, 0, 0)
+    rightColumn.BackgroundTransparency = 1
+    rightColumn.Parent = ContentFrame
+    
+    -- Layout pour organiser les éléments dans chaque colonne
+    local leftLayout = Instance.new("UIListLayout")
+    leftLayout.Padding = UDim.new(0, 10)
+    leftLayout.Parent = leftColumn
+    
+    local rightLayout = Instance.new("UIListLayout")
+    rightLayout.Padding = UDim.new(0, 10)
+    rightLayout.Parent = rightColumn
+    
     -- Section fonctions principales
-    local function createSection(title)
+    local function createSection(parent, title)
         local section = Instance.new("Frame")
         section.Name = title .. "Section"
         section.Size = UDim2.new(1, 0, 0, 20)
         section.BackgroundTransparency = 1
-        section.Parent = ContentFrame
+        section.Parent = parent
         
         local sectionTitle = Instance.new("TextLabel")
         sectionTitle.Name = "Title"
@@ -380,10 +396,10 @@ local function createUI()
         end)
     end
     
-    -- Créer les sections
-    local mainSection = createSection("Fonctionnalités")
-    local eventSection = createSection("Événements")
-    local optionsSection = createSection("Options")
+    -- Créer les sections dans les colonnes
+    local mainSection = createSection(leftColumn, "Fonctionnalités")
+    local eventSection = createSection(rightColumn, "Événements")
+    local optionsSection = createSection(leftColumn, "Options")
     
     -- Setup Anti-AFK
     local toggleAfk = setupAntiAfk()
@@ -393,37 +409,24 @@ local function createUI()
         toggleAfk(state)
     end)
     
-    -- TP Event toggle - MODIFIÉ POUR ÊTRE UN TOGGLE PLUTÔT QU'UN BOUTON
+    -- TP Event toggle - MODIFIÉ POUR NE TÉLÉPORTER QU'UNE FOIS
     createToggle(eventSection, "TP to Event", function(state)
         autoTpEventActive = state
         
-        if autoTpEventCoroutine then
-            pcall(function() 
-                coroutine.close(autoTpEventCoroutine)
-                autoTpEventCoroutine = nil
-            end)
-        end
-        
-        if state then
-            autoTpEventCoroutine = coroutine.create(function()
-                while autoTpEventActive do
-                    local character = LocalPlayer.Character
-                    if character and character:FindFirstChild("HumanoidRootPart") then
-                        local currentTime = tick()
-                        if currentTime - lastPortalTpTime >= portalTpCooldown then
-                            teleportTo(portalPosition)
-                            lastPortalTpTime = currentTime
-                            notify("Event", "Téléportation au portail d'événement", 2)
-                        end
-                    end
-                    wait(1)
-                end
-            end)
-            
-            coroutine.resume(autoTpEventCoroutine)
-            notify("Event", "TP to Event activé", 2)
-        else
-            notify("Event", "TP to Event désactivé", 2)
+        if state and not hasBeenTeleported then
+            local character = LocalPlayer.Character
+            if character and character:FindFirstChild("HumanoidRootPart") then
+                teleportTo(portalPosition)
+                hasBeenTeleported = true
+                notify("Event", "Téléportation au portail d'événement", 2)
+            else
+                notify("Erreur", "Personnage non disponible pour la téléportation", 2)
+            end
+        elseif state and hasBeenTeleported then
+            notify("Event", "Vous avez déjà été téléporté à l'événement", 2)
+        elseif not state then
+            hasBeenTeleported = false
+            notify("Event", "TP to Event désactivé - Réinitialisé", 2)
         end
     end)
     
@@ -456,7 +459,7 @@ local function createKeyUI()
         end
     end)
     
-    -- Création de l'interface GUI
+    -- Création de l'interface GUI - Version rectangulaire
     local KeyUI = Instance.new("ScreenGui")
     KeyUI.Name = "KeyUI"
     KeyUI.ResetOnSpawn = false
@@ -477,8 +480,8 @@ local function createKeyUI()
     MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 50)
     MainFrame.BorderSizePixel = 2
     MainFrame.BorderColor3 = Color3.fromRGB(0, 150, 255)
-    MainFrame.Position = UDim2.new(0.5, -150, 0.5, -100)
-    MainFrame.Size = UDim2.new(0, 300, 0, 200)
+    MainFrame.Position = UDim2.new(0.5, -200, 0.5, -100) -- Centré
+    MainFrame.Size = UDim2.new(0, 400, 0, 200) -- Plus rectangulaire
     MainFrame.Active = true
     MainFrame.Draggable = true
     
