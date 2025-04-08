@@ -1,5 +1,6 @@
 -- Script PS99 simplifié avec UI amélioré et draggable
 -- Version simplifiée avec AFK, TP Spawn World + Event et Auto TP Event
+-- Version corrigée pour éviter les chutes dans le vide
 
 -- Système de clé d'authentification
 local keySystem = true
@@ -47,6 +48,8 @@ function loadScript()
     local StarterGui = game:GetService("StarterGui")
     local LocalPlayer = Players.LocalPlayer
     local UserInputService = game:GetService("UserInputService")
+    local ReplicatedStorage = game:GetService("ReplicatedStorage")
+    local RunService = game:GetService("RunService")
     
     -- Afficher un message de débogage
     StarterGui:SetCore("SendNotification", {
@@ -87,18 +90,91 @@ function loadScript()
     -- Position réelle de l'événement après le chargement
     local eventPosition = Vector3.new(-24529.11, 407.52, -1514.52)
 
-    -- Fonction de téléportation modifiée (téléportation directe)
+    -- Vérification si une partie du jeu est chargée
+    local function isAreaLoaded(position, radius)
+        radius = radius or 10
+        local parts = workspace:GetPartBoundsInRadius(position, radius)
+        return #parts > 5  -- Si au moins 5 parties sont chargées
+    end
+    
+    -- Fonction pour attendre le chargement d'une zone
+    local function waitForAreaLoad(position, timeout)
+        timeout = timeout or 10  -- Timeout par défaut de 10 secondes
+        local startTime = tick()
+        
+        -- Attendre jusqu'à ce que la zone soit chargée ou que le délai soit dépassé
+        while not isAreaLoaded(position, 20) do
+            if tick() - startTime > timeout then
+                return false  -- Échec du chargement dans le délai
+            end
+            wait(0.5)
+        end
+        
+        return true  -- Zone chargée avec succès
+    end
+
+    -- Fonction de téléportation améliorée
     local function teleportTo(position)
         local character = LocalPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
+        if not character or not character:FindFirstChild("HumanoidRootPart") then 
+            StarterGui:SetCore("SendNotification", {
+                Title = "Erreur",
+                Text = "Personnage non trouvé",
+                Duration = 3
+            })
+            return false 
+        end
         
-        -- Téléportation directe à la position exacte
-        character.HumanoidRootPart.CFrame = CFrame.new(position)
+        -- Position légèrement plus haute pour éviter de tomber dans le vide
+        local safePosition = Vector3.new(position.X, position.Y + 5, position.Z)
         
-        -- Stabilisation
-        character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+        -- Téléportation en deux étapes
+        -- 1. Téléporter en hauteur pour éviter de tomber sous le sol
+        character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
         
-        return true
+        -- 2. Attendre que la zone se charge
+        StarterGui:SetCore("SendNotification", {
+            Title = "Téléportation",
+            Text = "Attente du chargement...",
+            Duration = 3
+        })
+        
+        -- Attendre que la zone soit chargée (max 8 secondes)
+        local loaded = waitForAreaLoad(position, 8)
+        
+        if loaded then
+            -- 3. Finaliser la téléportation à la position exacte
+            character.HumanoidRootPart.CFrame = CFrame.new(position)
+            character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Téléportation",
+                Text = "Zone chargée avec succès",
+                Duration = 2
+            })
+            return true
+        else
+            StarterGui:SetCore("SendNotification", {
+                Title = "Avertissement",
+                Text = "Chargement incomplet, tentative de stabilisation",
+                Duration = 3
+            })
+            
+            -- Tenter de stabiliser le personnage même si le chargement n'est pas complet
+            character.HumanoidRootPart.CFrame = CFrame.new(position)
+            character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+            
+            -- Utiliser une méthode de secours - appliquer une force vers le haut
+            local bodyVelocity = Instance.new("BodyVelocity")
+            bodyVelocity.Velocity = Vector3.new(0, 10, 0)  -- Force vers le haut
+            bodyVelocity.MaxForce = Vector3.new(0, 4000, 0)
+            bodyVelocity.Parent = character.HumanoidRootPart
+            
+            -- Supprimer après 1 seconde
+            game:GetService("Debris"):AddItem(bodyVelocity, 1)
+            
+            return true
+        end
     end
 
     -- Fonction pour vérifier si le joueur est à une position spécifique
@@ -111,18 +187,63 @@ function loadScript()
         return distance <= tolerance
     end
 
-    -- Auto Téléport au Spawn World
+    -- Auto Téléport au Spawn World - Version corrigée
     MainSection:NewToggle("Auto TP Spawn World", "Téléporte automatiquement au Spawn World", function(state)
         getgenv().autoTpSpawn = state
         if state then
             spawn(function()
                 while getgenv().autoTpSpawn do
+                    -- Essayer de téléporter
                     teleportTo(spawnWorldPosition)
-                    wait(5)  -- Attendre 5 secondes entre chaque téléportation
+                    
+                    -- Vérifier si la téléportation a réussi
+                    if not isAtPosition(spawnWorldPosition, 20) then
+                        StarterGui:SetCore("SendNotification", {
+                            Title = "Auto TP",
+                            Text = "Échec de téléportation, nouvelle tentative...",
+                            Duration = 2
+                        })
+                    end
+                    
+                    -- Pause plus longue pour permettre un chargement complet
+                    wait(10)  -- Attendre 10 secondes entre chaque téléportation
                 end
             end)
         end
     end)
+
+    -- Fonction de détection de chute dans le vide
+    local function setupVoidDetection()
+        spawn(function()
+            while true do
+                wait(1)
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    local position = character.HumanoidRootPart.Position
+                    
+                    -- Si le joueur tombe sous le niveau du sol
+                    if position.Y < -50 then
+                        StarterGui:SetCore("SendNotification", {
+                            Title = "Protection anti-vide",
+                            Text = "Détection de chute, téléportation au spawn...",
+                            Duration = 3
+                        })
+                        
+                        -- Téléporter au spawn avec une hauteur plus importante
+                        local safePosition = Vector3.new(spawnWorldPosition.X, spawnWorldPosition.Y + 10, spawnWorldPosition.Z)
+                        character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+                        
+                        -- Attendre un peu et stabiliser
+                        wait(1)
+                        character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
+                    end
+                end
+            end
+        end)
+    end
+    
+    -- Activer la détection de chute dans le vide
+    setupVoidDetection()
 
     -- Tab Téléportation
     local TeleportTab = Window:NewTab("Téléportation")
