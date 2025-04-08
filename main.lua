@@ -1,38 +1,35 @@
--- Script PS99 Mobile Pro - Mobile Edition
--- Utilise Orion Library pour une meilleure compatibilité mobile
+-- PS99 Mobile Pro - Version complète avec système de clé adapté aux mobiles
 
 -- Variables principales
+local correctKey = "zekyu"
 local autoTpEventActive = false
 local showNotifications = true
-local correctKey = "zekyu"
 local hasBeenTeleported = false
 
 -- Services
 local Players = game:GetService("Players")
 local StarterGui = game:GetService("StarterGui")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local LocalPlayer = Players.LocalPlayer
 
 -- Position du portail pour aller à l'événement
 local portalPosition = Vector3.new(174.04, 16.96, -141.07)
 
--- Chargement de la bibliothèque Orion UI (compatible mobile)
-local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+-- Chargement des bibliothèques adaptées aux mobiles
+local Material = loadstring(game:HttpGet("https://raw.githubusercontent.com/Kinlei/MaterialLua/master/Module.lua"))()
 
--- Création des variables pour les fenêtres
-local MainWindow
-local KeyWindow
-
--- Fonction notification
+-- Fonction notification optimisée pour mobile
 local function notify(title, text, duration)
     if not showNotifications then return end
-    OrionLib:MakeNotification({
-        Name = title,
-        Content = text,
-        Image = "rbxassetid://4483345998",
-        Time = duration or 3
-    })
+    pcall(function()
+        StarterGui:SetCore("SendNotification", {
+            Title = title, 
+            Text = text, 
+            Duration = duration or 2,
+            Icon = "rbxassetid://4483345998",
+            Button1 = "OK"
+        })
+    end)
 end
 
 -- Fonction Anti-AFK
@@ -87,62 +84,48 @@ local function teleportTo(position)
     return true
 end
 
--- Création de l'UI principale
+-- Création de l'interface principale (après validation de la clé)
 local function createMainUI()
-    if MainWindow then
-        OrionLib:Destroy()
-    end
-    
-    -- Création de la fenêtre principale
-    MainWindow = OrionLib:MakeWindow({
-        Name = "PS99 Mobile Pro",
-        HidePremium = true,
-        SaveConfig = false,
-        IntroEnabled = true,
-        IntroText = "PS99 Mobile Pro",
-        IntroIcon = "rbxassetid://4483345998",
-        Icon = "rbxassetid://4483345998",
-        ConfigFolder = "PS99MobilePro"
+    -- Interface principale adaptée aux mobiles
+    local UI = Material.Load({
+        Title = "PS99 Mobile Pro",
+        Style = 3, -- Style arrondi adapté aux mobiles
+        SizeX = 320,
+        SizeY = 400,
+        Theme = "Dark",
+        ColorOverrides = {
+            MainFrame = Color3.fromRGB(35, 35, 35),
+            TitleBar = Color3.fromRGB(30, 30, 30),
+            AccentColor = Color3.fromRGB(70, 130, 255)
+        }
     })
     
     -- Setup Anti-AFK
     local toggleAfk = setupAntiAfk()
     
     -- Onglet Fonctionnalités
-    local MainTab = MainWindow:MakeTab({
-        Name = "Fonctionnalités",
-        Icon = "rbxassetid://4483362458",
-        PremiumOnly = false
-    })
-    
-    MainTab:AddSection({
-        Name = "Fonctions Principales"
+    local MainTab = UI.New({
+        Title = "Fonctionnalités"
     })
     
     -- Toggle Anti-AFK
-    MainTab:AddToggle({
-        Name = "Anti-AFK",
-        Default = false,
+    MainTab.Toggle({
+        Text = "Anti-AFK",
+        Enabled = false,
         Callback = function(Value)
             toggleAfk(Value)
         end
     })
     
     -- Onglet Événements
-    local EventTab = MainWindow:MakeTab({
-        Name = "Événements",
-        Icon = "rbxassetid://4483364237",
-        PremiumOnly = false
-    })
-    
-    EventTab:AddSection({
-        Name = "Fonctions d'Événements"
+    local EventTab = UI.New({
+        Title = "Événements"
     })
     
     -- TP Event toggle
-    EventTab:AddToggle({
-        Name = "TP to Event",
-        Default = false,
+    EventTab.Toggle({
+        Text = "TP to Event",
+        Enabled = false,
         Callback = function(Value)
             autoTpEventActive = Value
             
@@ -165,20 +148,14 @@ local function createMainUI()
     })
     
     -- Onglet Options
-    local SettingsTab = MainWindow:MakeTab({
-        Name = "Options",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
-    })
-    
-    SettingsTab:AddSection({
-        Name = "Paramètres"
+    local SettingsTab = UI.New({
+        Title = "Options"
     })
     
     -- Toggle pour les notifications
-    SettingsTab:AddToggle({
-        Name = "Notifications",
-        Default = true,
+    SettingsTab.Toggle({
+        Text = "Notifications",
+        Enabled = true,
         Callback = function(Value)
             showNotifications = Value
             if Value then
@@ -187,100 +164,111 @@ local function createMainUI()
         end
     })
     
-    -- Bouton pour fermer l'interface
-    SettingsTab:AddButton({
-        Name = "Fermer l'interface",
+    -- Button pour fermer l'interface
+    SettingsTab.Button({
+        Text = "Fermer l'interface",
         Callback = function()
-            OrionLib:Destroy()
+            UI:Destroy()
         end
     })
     
-    -- Paragraphe d'information
-    SettingsTab:AddParagraph("Information", "PS99 Mobile Pro v1.0 - Développé par zekyu")
+    -- Information
+    SettingsTab.Label({
+        Text = "PS99 Mobile Pro v1.0"
+    })
+    
+    SettingsTab.Label({
+        Text = "Développé par zekyu"
+    })
+    
+    notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
 end
 
--- Interface de saisie de clé
+-- Interface d'authentification par clé mobile-friendly
 local function createKeyUI()
-    OrionLib:MakeWindow({
-        Name = "PS99 Mobile Pro - Authentification",
-        HidePremium = true,
-        SaveConfig = false,
-        IntroEnabled = false,
-        Icon = "rbxassetid://4483345998",
-        ConfigFolder = "PS99MobilePro"
+    -- Interface d'authentification adaptée aux mobiles
+    local KeyUI = Material.Load({
+        Title = "PS99 Mobile Pro - Authentification",
+        Style = 3, -- Style arrondi pour mobile
+        SizeX = 300, -- Taille réduite pour écran mobile
+        SizeY = 180,
+        Theme = "Dark",
+        ColorOverrides = {
+            MainFrame = Color3.fromRGB(35, 35, 35),
+            TitleBar = Color3.fromRGB(30, 30, 30),
+            AccentColor = Color3.fromRGB(255, 70, 70)
+        }
     })
     
     -- Onglet Authentification
-    local KeyTab = OrionLib:MakeTab({
-        Name = "Clé",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
+    local KeyTab = KeyUI.New({
+        Title = "Système de clé"
     })
     
-    KeyTab:AddSection({
-        Name = "Entrez votre clé"
+    -- Texte explicatif
+    KeyTab.Label({
+        Text = "Entrez votre clé d'activation:"
     })
     
-    -- Variable pour stocker la clé saisie
-    local keyInput = ""
-    
-    -- Input pour la clé
-    KeyTab:AddTextbox({
-        Name = "Clé d'activation",
-        Default = "",
-        TextDisappear = false,
+    -- Champ de saisie de la clé (optimisé pour mobile)
+    local keyInput
+    keyInput = KeyTab.TextField({
+        Text = "Clé d'activation",
         Callback = function(Value)
-            keyInput = Value
-        end
+            keyInput.Value = Value
+        end,
+        Menu = false
     })
     
-    -- Bouton pour vérifier la clé
-    KeyTab:AddButton({
-        Name = "Valider la clé",
+    -- Bouton de validation (plus grand pour mobile)
+    KeyTab.Button({
+        Text = "VALIDER LA CLÉ",
         Callback = function()
-            if keyInput == correctKey then
-                OrionLib:MakeNotification({
-                    Name = "Authentification réussie",
-                    Content = "Chargement de l'interface principale...",
-                    Image = "rbxassetid://4483345998",
-                    Time = 3
-                })
+            if keyInput.Value == correctKey then
+                -- Animation et notification de succès
+                notify("Succès!", "Authentification réussie!", 2)
                 
-                -- Petit délai avant de charger l'interface principale
-                task.spawn(function()
+                -- Fermer l'interface de clé et ouvrir l'interface principale
+                KeyUI:Destroy()
+                wait(1)
+                
+                -- Lancer l'interface principale
+                local success, errorMsg = pcall(createMainUI)
+                if not success then
                     wait(1)
-                    OrionLib:Destroy()
-                    wait(0.5)
-                    local success, errorMsg = pcall(createMainUI)
-                    if not success then
-                        wait(1)
-                        notify("Erreur", "Impossible de charger le script: " .. tostring(errorMsg), 5)
-                        wait(1)
-                        createKeyUI() -- Recréer l'interface de clé en cas d'erreur
-                    end
-                end)
+                    notify("Erreur", "Impossible de charger le script: " .. tostring(errorMsg), 5)
+                    wait(1)
+                    createKeyUI() -- Recréer l'interface de clé en cas d'erreur
+                end
             else
-                OrionLib:MakeNotification({
-                    Name = "Clé invalide",
-                    Content = "Veuillez réessayer avec la bonne clé",
-                    Image = "rbxassetid://4483345998",
-                    Time = 2
-                })
+                -- Animation et notification d'échec
+                notify("Erreur", "Clé invalide! Veuillez réessayer.", 2)
+                
+                -- Effet visuel pour indiquer l'erreur
+                local originalPosition = KeyUI.GUI.MainFrame.Position
+                for i = 1, 3 do
+                    KeyUI.GUI.MainFrame.Position = originalPosition + UDim2.new(0.01, 0, 0, 0)
+                    wait(0.05)
+                    KeyUI.GUI.MainFrame.Position = originalPosition - UDim2.new(0.01, 0, 0, 0)
+                    wait(0.05)
+                end
+                KeyUI.GUI.MainFrame.Position = originalPosition
             end
-        end
+        end,
+        Primary = true -- Bouton principal, plus visible
     })
+    
+    return KeyUI
 end
 
 -- Démarrage de l'application
 pcall(function()
     -- Message de démarrage
-    game:GetService("StarterGui"):SetCore("SendNotification", {
-        Title = "PS99 Mobile Pro", 
-        Text = "Chargement du système d'authentification...",
-        Duration = 3
-    })
+    notify("PS99 Mobile Pro", "Chargement du système d'authentification...", 3)
     
-    -- Charger l'interface de clé
+    -- Attendre un peu pour que le jeu se charge correctement
     wait(1)
+    
+    -- Lancer l'interface de clé
     createKeyUI()
 end)
