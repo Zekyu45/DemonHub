@@ -1,4 +1,4 @@
--- Script PS99 Mobile Pro - UI Rayfield
+-- Script PS99 Mobile Pro - UI Fluent
 
 -- Variables principales
 local autoTpEventActive = false
@@ -16,10 +16,12 @@ local LocalPlayer = Players.LocalPlayer
 -- Position du portail pour aller à l'événement
 local portalPosition = Vector3.new(174.04, 16.96, -141.07)
 
--- Configuration de Rayfield (si pas encore chargé)
-if not _G.Rayfield then
-    _G.Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
-end
+-- Chargement de la bibliothèque Fluent UI
+local Fluent = loadstring(game:HttpGet("https://github.com/dawid-scripts/Fluent/releases/latest/download/main.lua"))()
+
+-- Création des variables pour les fenêtres Fluent
+local Window
+local KeyWindow
 
 -- Fonction notification
 local function notify(title, text, duration)
@@ -87,61 +89,51 @@ local function teleportTo(position)
     return true
 end
 
--- Création de l'UI avec Rayfield
+-- Création de l'UI avec Fluent
 local function createUI()
-    -- Suppression de l'ancienne interface Rayfield si elle existe
-    if _G.Window then
-        _G.Window:Destroy()
+    -- Si une fenêtre existe déjà, la détruire
+    if Window then
+        Window:Destroy()
     end
     
-    -- Création de la fenêtre principale
-    _G.Window = _G.Rayfield:CreateWindow({
-        Name = "PS99 Mobile Pro",
-        LoadingTitle = "PS99 Mobile Pro",
-        LoadingSubtitle = "par zekyu",
-        ConfigurationSaving = {
-            Enabled = true,
-            FolderName = "PS99MobilePro",
-            FileName = "ConfigPS99"
-        },
-        KeySystem = false, -- Nous gérons notre propre système de clé
-        KeySettings = {
-            Title = "PS99 Mobile Pro",
-            Subtitle = "Système de clé",
-            Note = "La clé est: zekyu",
-            Key = "zekyu"
-        }
-    })
+    -- Options de la fenêtre principale
+    local options = {
+        Title = "PS99 Mobile Pro",
+        SubTitle = "par zekyu",
+        TabWidth = 160,
+        Size = UDim2.new(0, 550, 0, 350),
+        Acrylic = true,
+        Theme = "Dark",
+        MinimizeKey = Enum.KeyCode.LeftControl
+    }
     
-    -- Création des onglets
-    local MainTab = _G.Window:CreateTab("Fonctionnalités", 4483362458) -- ID d'une icône de fonction
-    local EventTab = _G.Window:CreateTab("Événements", 4483364237) -- ID d'une icône d'événement
-    local SettingsTab = _G.Window:CreateTab("Options", 4483345998) -- ID d'une icône de paramètres
+    -- Création de la fenêtre
+    Window = Fluent:CreateWindow(options)
     
     -- Setup Anti-AFK
     local toggleAfk = setupAntiAfk()
     
-    -- Section Fonctionnalités Principales
-    MainTab:CreateSection("Fonctions Principales")
+    -- Onglet Fonctionnalités
+    local MainTab = Window:CreateTab("Fonctionnalités", "rbxassetid://4483362458")
+    local MainSection = MainTab:CreateSection("Fonctions Principales")
     
     -- Toggle Anti-AFK
     MainTab:CreateToggle({
-        Name = "Anti-AFK",
-        CurrentValue = false,
-        Flag = "ToggleAntiAFK",
+        Title = "Anti-AFK",
+        Default = false,
         Callback = function(Value)
             toggleAfk(Value)
         end
     })
     
-    -- Section Événements
-    EventTab:CreateSection("Fonctions d'Événements")
+    -- Onglet Événements
+    local EventTab = Window:CreateTab("Événements", "rbxassetid://4483364237")
+    local EventSection = EventTab:CreateSection("Fonctions d'Événements")
     
     -- TP Event toggle - MODIFIÉ POUR NE TÉLÉPORTER QU'UNE FOIS
     EventTab:CreateToggle({
-        Name = "TP to Event",
-        CurrentValue = false,
-        Flag = "ToggleTPEvent",
+        Title = "TP to Event",
+        Default = false,
         Callback = function(Value)
             autoTpEventActive = Value
             
@@ -162,14 +154,14 @@ local function createUI()
             end
         end
     })
--- Section Options
-    SettingsTab:CreateSection("Paramètres")
+    -- Onglet Options
+    local SettingsTab = Window:CreateTab("Options", "rbxassetid://4483345998")
+    local SettingsSection = SettingsTab:CreateSection("Paramètres")
     
     -- Toggle pour les notifications
     SettingsTab:CreateToggle({
-        Name = "Notifications",
-        CurrentValue = true,
-        Flag = "ToggleNotifications",
+        Title = "Notifications",
+        Default = true,
         Callback = function(Value)
             showNotifications = Value
             if Value then
@@ -180,79 +172,131 @@ local function createUI()
     
     -- Bouton pour fermer l'interface
     SettingsTab:CreateButton({
-        Name = "Fermer l'interface",
+        Title = "Fermer l'interface",
         Callback = function()
-            _G.Window:Destroy()
+            Window:Destroy()
         end
     })
     
-    return _G.Window
-end
-
--- Interface de saisie de clé avec Rayfield
-local function createKeyUI()
-    -- Suppression des anciennes interfaces Rayfield
-    if _G.KeyWindow then
-        _G.KeyWindow:Destroy()
-    end
-    
-    -- Création de la fenêtre de clé
-    _G.KeyWindow = _G.Rayfield:CreateWindow({
-        Name = "PS99 Mobile Pro - Authentification",
-        LoadingTitle = "PS99 Mobile Pro",
-        LoadingSubtitle = "Vérification de la clé...",
-        ConfigurationSaving = {
-            Enabled = false,
-        },
-        KeySystem = true, -- Utilisation du système de clé intégré de Rayfield
-        KeySettings = {
-            Title = "PS99 Mobile Pro - Authentification",
-            Subtitle = "Authentification requise",
-            Note = "La clé est: zekyu",
-            Key = correctKey,
-            Actions = {
-                [1] = {
-                    Text = "La clé est affichée dans la note ci-dessus",
-                    OnPress = function()
-                        setclipboard(correctKey)
-                        notify("Clé", "Clé copiée dans le presse-papiers!", 2)
-                    end,
-                }
-            }
-        }
+    -- Créer un paragraphe d'information
+    SettingsTab:CreateParagraph({
+        Title = "Information",
+        Content = "PS99 Mobile Pro v1.0 - Développé par zekyu"
     })
     
-    -- Après authentification réussie, charger l'interface principale
-    _G.KeyWindow:Prompt({
-        Title = "Authentification réussie",
-        SubTitle = "Chargement de l'interface principale...",
-        Actions = {
-            Accept = {
-                Name = "OK",
-                Callback = function()
-                    _G.KeyWindow:Destroy()
+    return Window
+end
+
+-- Interface de saisie de clé avec Fluent
+local function createKeyUI()
+    -- Si une fenêtre de clé existe déjà, la détruire
+    if KeyWindow then
+        KeyWindow:Destroy()
+    end
+    
+    -- Options de la fenêtre de clé
+    local keyOptions = {
+        Title = "PS99 Mobile Pro - Authentification",
+        SubTitle = "Système de clé",
+        TabWidth = 160,
+        Size = UDim2.new(0, 450, 0, 230),
+        Acrylic = true,
+        Theme = "Dark"
+    }
+    
+    -- Création de la fenêtre de clé
+    KeyWindow = Fluent:CreateWindow(keyOptions)
+    
+    -- Onglet Authentification
+    local AuthTab = KeyWindow:CreateTab("Authentification", "rbxassetid://4483345998")
+    
+    -- Section pour la clé
+    local KeySection = AuthTab:CreateSection("Entrez votre clé")
+    
+    -- Afficher la clé (pour démo)
+    AuthTab:CreateParagraph({
+        Title = "Clé de vérification",
+        Content = "La clé est: " .. correctKey
+    })
+    
+    -- Input pour la clé
+    local keyInput
+    keyInput = AuthTab:CreateInput({
+        Title = "Clé d'activation",
+        Default = correctKey, -- Pré-remplir avec la clé correcte
+        Placeholder = "Entrez votre clé ici...",
+        Callback = function(Text)
+            if Text == correctKey then
+                Fluent:Notify({
+                    Title = "Authentification réussie",
+                    Content = "Chargement de l'interface principale...",
+                    Duration = 3
+                })
+                
+                -- Attendre un peu avant de charger l'interface principale
+                task.spawn(function()
+                    wait(1.5)
+                    KeyWindow:Destroy()
+                    
                     local success, errorMsg = pcall(createUI)
                     if not success then
                         wait(1)
                         notify("Erreur", "Impossible de charger le script: " .. tostring(errorMsg), 5)
                         createKeyUI() -- Retourner à l'interface de clé en cas d'erreur
                     end
-                end
-            }
-        }
+                end)
+            else
+                Fluent:Notify({
+                    Title = "Clé invalide",
+                    Content = "Veuillez réessayer avec la bonne clé",
+                    Duration = 2
+                })
+            end
+        end
     })
     
-    return _G.KeyWindow
+    -- Bouton pour vérifier la clé
+    AuthTab:CreateButton({
+        Title = "Valider la clé",
+        Callback = function()
+            if keyInput.Value == correctKey then
+                Fluent:Notify({
+                    Title = "Authentification réussie",
+                    Content = "Chargement de l'interface principale...",
+                    Duration = 3
+                })
+                
+                -- Attendre un peu avant de charger l'interface principale
+                task.spawn(function()
+                    wait(1.5)
+                    KeyWindow:Destroy()
+                    
+                    local success, errorMsg = pcall(createUI)
+                    if not success then
+                        wait(1)
+                        notify("Erreur", "Impossible de charger le script: " .. tostring(errorMsg), 5)
+                        createKeyUI() -- Retourner à l'interface de clé en cas d'erreur
+                    end
+                end)
+            else
+                Fluent:Notify({
+                    Title = "Clé invalide",
+                    Content = "Veuillez réessayer avec la bonne clé",
+                    Duration = 2
+                })
+            end
+        end
+    })
+    
+    return KeyWindow
 end
 
 -- Démarrage de l'application
--- Charger Rayfield si ce n'est pas déjà fait
-if not _G.Rayfield then
-    _G.Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
-end
-
--- Lancer l'interface de clé
-createKeyUI()
-
--- Message de confirmation
-notify("PS99 Mobile Pro", "Script chargé avec succès!", 3)
+pcall(function()
+    -- Essayer de charger Fluent UI et l'interface
+    createKeyUI()
+    
+    -- Message de confirmation
+    notify("PS99 Mobile Pro", "Script chargé avec succès!", 3)
+end)
+    
