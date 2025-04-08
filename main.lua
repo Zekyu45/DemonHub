@@ -1,5 +1,5 @@
 -- Script PS99 simplifié avec UI amélioré et draggable
--- Version optimisée avec AFK, TP Event et Auto TP Breakables - CORRIGÉ
+-- Version optimisée avec AFK, TP Event et Auto TP Breakables - CORRIGÉ 2.0
 
 -- Système de clé d'authentification
 local keySystem = true
@@ -90,10 +90,18 @@ function loadScript()
     -- Position du portail pour aller à l'événement
     local portalPosition = Vector3.new(174.04, 16.96, -141.07)
     
+    -- Position approximative du centre de la zone d'événement
+    local eventCenterPosition = Vector3.new(-24529.11, 407.52, -1514.52)
+    
     -- Variables de contrôle pour les toggles
     local autoTpEventActive = false
     local autoTpBreakablesActive = false
     local inEventArea = false -- Variable pour suivre si le joueur est dans la zone d'événement
+    
+    -- Variables pour éviter les téléportations en boucle
+    local lastPortalTpTime = 0
+    local portalTpCooldown = 5 -- 5 secondes entre les téléportations au portail
+    local preventInfiniteLoop = false
 
     -- Vérification optimisée si une partie du jeu est chargée
     local function isAreaLoaded(position, radius)
@@ -173,6 +181,12 @@ function loadScript()
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
         
+        -- Vérifier la proximité avec la position approximative du centre de l'événement
+        local distance = (character.HumanoidRootPart.Position - eventCenterPosition).Magnitude
+        if distance < 1000 then
+            return true
+        end
+        
         -- Cache pour éviter de rechercher à chaque frame
         local eventKeywords = {"event", "arena", "stage"}
         
@@ -182,10 +196,15 @@ function loadScript()
                 local name = obj.Name:lower()
                 for _, keyword in ipairs(eventKeywords) do
                     if name:find(keyword) then
-                        local distance = (character.HumanoidRootPart.Position - 
-                            (obj:IsA("BasePart") and obj.Position or obj:GetPrimaryPartCFrame().Position)).Magnitude
-                        if distance < 300 then
-                            return true
+                        local objPosition = obj:IsA("BasePart") and obj.Position or 
+                                           (obj:FindFirstChild("PrimaryPart") and obj.PrimaryPart.Position) or
+                                           (obj:FindFirstChildWhichIsA("BasePart") and obj:FindFirstChildWhichIsA("BasePart").Position)
+                        
+                        if objPosition then
+                            local distance = (character.HumanoidRootPart.Position - objPosition).Magnitude
+                            if distance < 300 then
+                                return true
+                            end
                         end
                     end
                 end
@@ -205,9 +224,14 @@ function loadScript()
                     local position = character.HumanoidRootPart.Position
                     
                     if position.Y < -50 then
-                        -- Téléporter au portail d'événement avec une hauteur plus importante
-                        local safePosition = Vector3.new(portalPosition.X, portalPosition.Y + 10, portalPosition.Z)
-                        character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+                        -- Si dans zone d'événement, téléporter au centre de l'événement
+                        if inEventArea then
+                            teleportTo(eventCenterPosition)
+                        else
+                            -- Sinon téléporter au portail d'événement avec une hauteur plus importante
+                            local safePosition = Vector3.new(portalPosition.X, portalPosition.Y + 10, portalPosition.Z)
+                            character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
+                        end
                         
                         wait(1)
                         character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
@@ -279,23 +303,6 @@ function loadScript()
         return closestBreakable
     end
     
-    -- Fonction pour trouver le centre de la zone actuelle (optimisée)
-    local function findCurrentAreaCenter()
-        local character = LocalPlayer.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then 
-            return character.HumanoidRootPart.Position
-        end
-        
-        -- Si on est dans l'événement, approximer le centre
-        if inEventArea then
-            -- Approximation simplifée basée sur la position actuelle
-            return character.HumanoidRootPart.Position
-        end
-        
-        -- Si pas d'événement, renvoyer la position actuelle
-        return character.HumanoidRootPart.Position
-    end
-    
     -- Fonction pour équiper tous les pets avec infinite speed
     local function equipAllPetsInfiniteSpeed()
         wait(1)
@@ -319,16 +326,85 @@ function loadScript()
     local teleportCooldown = 1 -- 1 seconde entre les téléportations
     local lastTeleportTime = 0
     
-    -- Fonction pour cibler et casser les breakables (optimisée)
+    -- NOUVELLE FONCTION: Téléportation à la zone d'événement
+    local function teleportToEventArea()
+        local character = LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then 
+            return false
+        end
+        
+        -- Ne pas se téléporter si on est déjà dans la zone d'événement
+        if inEventArea then
+            return true
+        end
+        
+        -- Éviter les téléportations trop fréquentes au portail
+        local currentTime = tick()
+        if currentTime - lastPortalTpTime < portalTpCooldown then
+            return false
+        end
+        
+        -- Se téléporter au portail d'événement
+        teleportTo(portalPosition)
+        lastPortalTpTime = currentTime
+        wait(2) -- Attendre que le portail fonctionne
+        
+        -- Vérifier si on est maintenant dans la zone d'événement
+        inEventArea = checkIfInEventArea()
+        
+        -- Si toujours pas dans la zone d'événement, tenter une téléportation directe
+        if not inEventArea then
+            teleportTo(eventCenterPosition)
+            wait(1)
+            inEventArea = checkIfInEventArea()
+        }
+        
+        return inEventArea
+    end
+    
+    -- Fonction pour cibler et casser les breakables (optimisée et corrigée)
     local function targetBreakables()
-        spawn(function()
+        -- Annuler toute exécution précédente si elle existe
+        if autoTpBreakablesCoroutine then
+            pcall(function() coroutine.close(autoTpBreakablesCoroutine) end)
+        end
+        
+        -- Démarrer une nouvelle coroutine
+        autoTpBreakablesCoroutine = coroutine.create(function()
             local lastBreakableTime = tick()
             local scanForBreakablesDelay = 1  -- Délai plus long pour réduire la charge
+            local failedTeleportAttempts = 0
             
             while autoTpBreakablesActive do
-                -- Vérifier si nous sommes dans la zone d'événement (moins fréquemment)
-                if tick() % 10 < 1 then -- Vérifier environ toutes les 10 secondes
+                -- Équiper les meilleurs pets avec une vitesse infinie
+                if tick() % 30 < 1 then -- Refresh des pets toutes les 30 secondes environ
+                    equipAllPetsInfiniteSpeed()
+                end
+                
+                -- Vérifier si nous sommes dans la zone d'événement
+                inEventArea = checkIfInEventArea()
+                
+                -- Si pas dans la zone d'événement, s'y téléporter d'abord
+                if not inEventArea then
+                    teleportToEventArea()
+                    wait(1)
                     inEventArea = checkIfInEventArea()
+                    
+                    if not inEventArea then
+                        failedTeleportAttempts = failedTeleportAttempts + 1
+                        
+                        -- Après plusieurs échecs, attendre plus longtemps
+                        if failedTeleportAttempts >= 3 then
+                            wait(5)
+                            failedTeleportAttempts = 0
+                        else
+                            wait(1)
+                        end
+                        
+                        continue
+                    end
+                    
+                    failedTeleportAttempts = 0
                 end
                 
                 -- Chercher le breakable le plus proche
@@ -343,25 +419,28 @@ function loadScript()
                     end
                     
                     -- Tentative d'interaction avec le breakable
-                    if ReplicatedStorage:FindFirstChild("RemoteEvents") and
-                       ReplicatedStorage.RemoteEvents:FindFirstChild("TargetBreakable") then
-                        ReplicatedStorage.RemoteEvents.TargetBreakable:FireServer(nearestBreakable)
-                    end
+                    pcall(function()
+                        if ReplicatedStorage:FindFirstChild("RemoteEvents") and
+                        ReplicatedStorage.RemoteEvents:FindFirstChild("TargetBreakable") then
+                            ReplicatedStorage.RemoteEvents.TargetBreakable:FireServer(nearestBreakable)
+                        end
+                    end)
                     
                     -- Mettre à jour le temps du dernier breakable
                     lastBreakableTime = tick()
                     wait(0.5)
                 else
-                    -- Si aucun breakable n'est trouvé pendant 10 secondes, chercher dans une autre zone
-                    if tick() - lastBreakableTime > 10 then
-                        -- Tenter d'aller dans la zone d'événement si pas déjà dedans
-                        if not inEventArea then
-                            -- Téléporter au portail pour accéder à l'événement
-                            if tick() - lastTeleportTime >= teleportCooldown then
-                                teleportTo(portalPosition)
-                                lastTeleportTime = tick()
-                                wait(2) -- Attendre que le portail fonctionne
-                            end
+                    -- Si aucun breakable n'est trouvé pendant 5 secondes
+                    if tick() - lastBreakableTime > 5 then
+                        -- Réinitialiser le cache pour forcer une nouvelle recherche
+                        lastCacheUpdate = 0
+                        
+                        -- Si dans l'événement mais pas de breakables, déplacer au centre
+                        if inEventArea then
+                            teleportTo(eventCenterPosition)
+                        else
+                            -- Sinon, téléporter à l'événement
+                            teleportToEventArea()
                         end
                         
                         lastBreakableTime = tick()
@@ -371,43 +450,79 @@ function loadScript()
                 end
             end
         end)
+        
+        -- Démarrer la coroutine
+        coroutine.resume(autoTpBreakablesCoroutine)
     end
     
-    -- Auto Téléport à l'événement
+    -- Auto Téléport à l'événement CORRIGÉ
     EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement au portail de l'événement", function(state)
         autoTpEventActive = state
         
+        -- Annuler toute coroutine précédente
+        if autoTpEventCoroutine then
+            pcall(function() coroutine.close(autoTpEventCoroutine) end)
+        }
+        
         if state then
-            local character = LocalPlayer.Character
-            if not character or not character:FindFirstChild("HumanoidRootPart") then 
-                return 
-            end
+            -- Créer une nouvelle coroutine pour éviter les boucles infinies
+            autoTpEventCoroutine = coroutine.create(function()
+                while autoTpEventActive do
+                    local character = LocalPlayer.Character
+                    if not character or not character:FindFirstChild("HumanoidRootPart") then 
+                        wait(1)
+                        continue
+                    end
+                    
+                    -- Vérifier si déjà dans la zone d'événement
+                    inEventArea = checkIfInEventArea()
+                    
+                    if not inEventArea then
+                        -- Éviter les téléportations trop fréquentes au portail
+                        local currentTime = tick()
+                        if currentTime - lastPortalTpTime >= portalTpCooldown then
+                            teleportTo(portalPosition)
+                            lastPortalTpTime = currentTime
+                            wait(2) -- Attendre que le portail fonctionne
+                        end
+                    else
+                        -- Si déjà dans la zone d'événement, attendre plus longtemps
+                        wait(5)
+                    end
+                    
+                    -- Éviter la surcharge de la boucle
+                    wait(1)
+                end
+            end)
             
-            -- Vérifier si déjà dans la zone d'événement
-            inEventArea = checkIfInEventArea()
-            
-            if not inEventArea then
-                -- Téléporter uniquement au portail d'événement
-                teleportTo(portalPosition)
-            end
+            -- Démarrer la coroutine
+            coroutine.resume(autoTpEventCoroutine)
         end
     end)
     
-    -- Auto Téléport aux Breakables
+    -- Auto Téléport aux Breakables CORRIGÉ
     EventSection:NewToggle("Auto TP Breakables", "Téléporte et casse automatiquement les breakables", function(state)
         autoTpBreakablesActive = state
         
         if state then
-            local character = LocalPlayer.Character
-            if not character or not character:FindFirstChild("HumanoidRootPart") then
-                return
+            -- Activer le TP à l'event automatiquement si nécessaire
+            if not autoTpEventActive then
+                -- Activer le toggle visuellement et fonctionnellement
+                autoTpEventActive = true
+                -- Pour mettre à jour l'UI, on peut ajouter une fonction pour simuler un clic sur le toggle
+                -- Cette partie dépend de la bibliothèque d'UI utilisée
             end
-                
+            
             -- Équiper tous les pets avec infinite speed
             equipAllPetsInfiniteSpeed()
             
             -- Vérifier si nous sommes dans la zone d'événement
             inEventArea = checkIfInEventArea()
+            
+            -- Si pas dans la zone d'événement, s'y téléporter d'abord
+            if not inEventArea then
+                teleportToEventArea()
+            }
             
             -- Démarrer le ciblage automatique des breakables (dans toutes les zones)
             targetBreakables()
