@@ -1,12 +1,12 @@
 -- PS99 Mobile Pro - Système d'authentification par clé optimisé pour mobile
--- Version avec système de secours si Rayfield ne charge pas
+-- Version avec système de secours si l'UI ne charge pas
 
 -- Variables principales
 local correctKey = "zekyu"
 local autoTpEventActive = false
 local showNotifications = true
 local hasBeenTeleported = false
-local useBackupUI = false  -- Utilisera l'interface de secours si Rayfield échoue
+local useBackupUI = false  -- Utilisera l'interface de secours si l'UI principale échoue
 
 -- Services
 local Players = game:GetService("Players")
@@ -84,7 +84,7 @@ local function teleportTo(position)
     return true
 end
 
--- Interface principale avec l'UI originale (en cas d'échec de Rayfield)
+-- Interface principale avec l'UI de secours
 local function createBackupMainUI()
     notify("PS99 Mobile Pro", "Chargement de l'interface de secours...", 2)
     
@@ -163,7 +163,6 @@ local function createBackupMainUI()
     closeButton.MouseButton1Click:Connect(function()
         mainGui:Destroy()
     end)
-    
     -- Contenu principal
     local contentFrame = Instance.new("Frame")
     contentFrame.Name = "Content"
@@ -272,66 +271,65 @@ local function createBackupMainUI()
     notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
 end
 
--- Tentative de charger Rayfield avec gestion d'erreur
-local function loadRayfield()
-    notify("PS99 Mobile Pro", "Tentative de chargement de Rayfield...", 2)
+-- Tentative de charger Orion UI (alternative moderne à Rayfield)
+local function loadOrion()
+    notify("PS99 Mobile Pro", "Tentative de chargement de l'interface Orion...", 2)
     
     local success, result
     success, result = pcall(function()
-        return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+        return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Orion/main/source'))()
     end)
     
     if success and result then
-        notify("PS99 Mobile Pro", "Rayfield chargé avec succès", 2)
+        notify("PS99 Mobile Pro", "Interface Orion chargée avec succès", 2)
         return result
     else
-        notify("PS99 Mobile Pro", "Échec de chargement de Rayfield, utilisation de l'interface de secours", 3)
+        notify("PS99 Mobile Pro", "Échec de chargement de l'interface Orion, utilisation de l'interface de secours", 3)
         useBackupUI = true
         return nil
     end
 end
 
--- Interface principale avec Rayfield
+-- Interface principale avec Orion UI
 local function createMainInterface()
     if useBackupUI then
         createBackupMainUI()
         return
     end
     
-    local Rayfield = loadRayfield()
-    if not Rayfield then
+    local OrionLib = loadOrion()
+    if not OrionLib then
         createBackupMainUI()
         return
     end
     
-    local Window = Rayfield:CreateWindow({
-        Name = "PS99 Mobile Pro",
-        LoadingTitle = "PS99 Mobile Pro",
-        LoadingSubtitle = "par zekyu",
-        ConfigurationSaving = {
-            Enabled = false,
-            FolderName = nil,
-            FileName = nil
-        },
-        Discord = {
-            Enabled = false,
-            Invite = nil,
-            RememberJoins = false
-        },
-        KeySystem = false
+    local Window = OrionLib:MakeWindow({
+        Name = "PS99 Mobile Pro", 
+        HidePremium = true,
+        SaveConfig = false,
+        IntroEnabled = true,
+        IntroText = "PS99 Mobile Pro",
+        IntroIcon = "rbxassetid://4483345998",
+        Icon = "rbxassetid://4483345998",
+        CloseCallback = function()
+            -- Action lors de la fermeture
+        end
     })
     
     -- Onglet Principal
-    local MainTab = Window:CreateTab("Fonctionnalités", 4483362458)
+    local MainTab = Window:MakeTab({
+        Name = "Fonctionnalités",
+        Icon = "rbxassetid://4483362458",
+        PremiumOnly = false
+    })
     
     -- Anti-AFK Toggle
     local antiAfkEnabled = false
     local toggleAfk = setupAntiAfk()
     
-    MainTab:CreateToggle({
+    MainTab:AddToggle({
         Name = "Anti-AFK",
-        CurrentValue = antiAfkEnabled,
-        Flag = "AntiAFK",
+        Default = antiAfkEnabled,
         Callback = function(Value)
             antiAfkEnabled = Value
             toggleAfk(antiAfkEnabled)
@@ -341,11 +339,11 @@ local function createMainInterface()
             else
                 notify("Anti-AFK", "Système anti-AFK désactivé", 2)
             end
-        end,
+        end
     })
     
     -- TP to Event Button
-    MainTab:CreateButton({
+    MainTab:AddButton({
         Name = "TP to Event",
         Callback = function()
             if not hasBeenTeleported then
@@ -360,39 +358,44 @@ local function createMainInterface()
             else
                 notify("Event", "Vous avez déjà été téléporté à l'événement", 2)
             end
-        end,
+        end
     })
     
     -- Notifications Toggle
-    MainTab:CreateToggle({
+    MainTab:AddToggle({
         Name = "Notifications",
-        CurrentValue = showNotifications,
-        Flag = "ShowNotifications",
+        Default = showNotifications,
         Callback = function(Value)
             showNotifications = Value
             
             if showNotifications then
                 notify("Notifications", "Notifications activées", 2)
             end
-        end,
+        end
     })
     
     -- Onglet Options
-    local OptionsTab = Window:CreateTab("Options", 4483345998)
-    
-    OptionsTab:CreateSection("À propos")
-    
-    OptionsTab:CreateLabel("PS99 Mobile Pro v1.0")
-    OptionsTab:CreateLabel("Développé par zekyu")
-    
-    OptionsTab:CreateButton({
-        Name = "Fermer l'interface",
-        Callback = function()
-            Rayfield:Destroy()
-        end,
+    local OptionsTab = Window:MakeTab({
+        Name = "Options",
+        Icon = "rbxassetid://4483345998",
+        PremiumOnly = false
     })
     
-    notify("PS99 Mobile Pro", "Interface Rayfield chargée avec succès!", 3)
+    OptionsTab:AddSection({
+        Name = "À propos"
+    })
+    
+    OptionsTab:AddLabel("PS99 Mobile Pro v1.0")
+    OptionsTab:AddLabel("Développé par zekyu")
+    
+    OptionsTab:AddButton({
+        Name = "Fermer l'interface",
+        Callback = function()
+            OrionLib:Destroy()
+        end
+    })
+    
+    notify("PS99 Mobile Pro", "Interface Orion chargée avec succès!", 3)
 end
 
 -- Interface de saisie de clé (ScreenGui de base pour compatibilité maximale)
@@ -556,24 +559,17 @@ local function createKeyUI()
     
     notify("PS99 Mobile Pro", "Interface de clé créée, en attente de validation...", 2)
 
-    return KeyGui
+    return keyGui
 end
 
 
 pcall(function()
-
-    notify("PS99 Mobile Pro",  "Démarrage de l'application...", 3)
-
-
+    notify("PS99 Mobile Pro", "Démarrage de l'application...", 3)
     wait(1)
 
-
-
-    local KeyUISuccess = pcall(createKeyUI)
-
+    local keyUISuccess, keyUI = pcall(createKeyUI)
     
     if not keyUISuccess then
-            notify"Erreur Critique", "Impossible de créer l'interface de saisie de clé", 5)
+        notify("Erreur Critique", "Impossible de créer l'interface de saisie de clé", 5)
     end
 end)
-            
