@@ -208,7 +208,7 @@ function loadScript()
     end
     
     setupVoidDetection()
-    -- Tab Téléportation
+-- Tab Téléportation
     local TeleportTab = Window:NewTab("Téléportation")
     local TeleportSection = TeleportTab:NewSection("Zones")
 
