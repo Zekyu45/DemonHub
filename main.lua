@@ -1,6 +1,5 @@
 -- Script PS99 simplifié avec UI amélioré et draggable
 -- Version modifiée avec AFK, TP Event et Auto TP Breakables
--- Version corrigée pour éviter les chutes dans le vide
 
 -- Système de clé d'authentification
 local keySystem = true
@@ -85,32 +84,31 @@ function loadScript()
 
     -- Position du portail pour aller à l'événement
     local portalPosition = Vector3.new(174.04, 16.96, -141.07)
-    -- Position réelle de l'événement après le chargement
-    local eventPosition = Vector3.new(-24529.11, 407.52, -1514.52)
-    -- Position des breakables (même que l'événement dans ce cas)
-    local breakablesPosition = Vector3.new(-24529.11, 407.52, -1514.52)
+    
+    -- Variables de contrôle pour les toggles
+    local autoTpEventActive = false
+    local autoTpBreakablesActive = false
 
     -- Vérification si une partie du jeu est chargée
     local function isAreaLoaded(position, radius)
         radius = radius or 10
         local parts = workspace:GetPartBoundsInRadius(position, radius)
-        return #parts > 5  -- Si au moins 5 parties sont chargées
+        return #parts > 5
     end
     
     -- Fonction pour attendre le chargement d'une zone
     local function waitForAreaLoad(position, timeout)
-        timeout = timeout or 10  -- Timeout par défaut de 10 secondes
+        timeout = timeout or 10
         local startTime = tick()
         
-        -- Attendre jusqu'à ce que la zone soit chargée ou que le délai soit dépassé
         while not isAreaLoaded(position, 20) do
             if tick() - startTime > timeout then
-                return false  -- Échec du chargement dans le délai
+                return false
             end
             wait(0.5)
         end
         
-        return true  -- Zone chargée avec succès
+        return true
     end
 
     -- Fonction de téléportation améliorée
@@ -129,10 +127,8 @@ function loadScript()
         local safePosition = Vector3.new(position.X, position.Y + 5, position.Z)
         
         -- Téléportation en deux étapes
-        -- 1. Téléporter en hauteur pour éviter de tomber sous le sol
         character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
         
-        -- 2. Attendre que la zone se charge
         StarterGui:SetCore("SendNotification", {
             Title = "Téléportation",
             Text = "Attente du chargement...",
@@ -142,7 +138,6 @@ function loadScript()
         -- Attendre que la zone soit chargée (max 8 secondes)
         local loaded = waitForAreaLoad(position, 8)
         if loaded then
-            -- 3. Finaliser la téléportation à la position exacte
             character.HumanoidRootPart.CFrame = CFrame.new(position)
             character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
             
@@ -159,17 +154,15 @@ function loadScript()
                 Duration = 3
             })
             
-            -- Tenter de stabiliser le personnage même si le chargement n'est pas complet
             character.HumanoidRootPart.CFrame = CFrame.new(position)
             character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
             
             -- Utiliser une méthode de secours - appliquer une force vers le haut
             local bodyVelocity = Instance.new("BodyVelocity")
-            bodyVelocity.Velocity = Vector3.new(0, 10, 0)  -- Force vers le haut
+            bodyVelocity.Velocity = Vector3.new(0, 10, 0)
             bodyVelocity.MaxForce = Vector3.new(0, 4000, 0)
             bodyVelocity.Parent = character.HumanoidRootPart
             
-            -- Supprimer après 1 seconde
             game:GetService("Debris"):AddItem(bodyVelocity, 1)
             
             return true
@@ -181,7 +174,7 @@ function loadScript()
         local character = LocalPlayer.Character
         if not character or not character:FindFirstChild("HumanoidRootPart") then return false end
         
-        tolerance = tolerance or 100 -- Tolérance par défaut de 100 studs
+        tolerance = tolerance or 100
         local distance = (character.HumanoidRootPart.Position - position).Magnitude
         return distance <= tolerance
     end
@@ -195,19 +188,17 @@ function loadScript()
                 if character and character:FindFirstChild("HumanoidRootPart") then
                     local position = character.HumanoidRootPart.Position
                     
-                    -- Si le joueur tombe sous le niveau du sol
                     if position.Y < -50 then
                         StarterGui:SetCore("SendNotification", {
                             Title = "Protection anti-vide",
-                            Text = "Détection de chute, téléportation à l'événement...",
+                            Text = "Détection de chute, téléportation...",
                             Duration = 3
                         })
                         
-                        -- Téléporter à l'événement avec une hauteur plus importante
-                        local safePosition = Vector3.new(eventPosition.X, eventPosition.Y + 10, eventPosition.Z)
+                        -- Téléporter au portail d'événement avec une hauteur plus importante
+                        local safePosition = Vector3.new(portalPosition.X, portalPosition.Y + 10, portalPosition.Z)
                         character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
                         
-                        -- Attendre un peu et stabiliser
                         wait(1)
                         character.HumanoidRootPart.Velocity = Vector3.new(0, 0, 0)
                     end
@@ -216,9 +207,7 @@ function loadScript()
         end)
     end
     
-    -- Activer la détection de chute dans le vide
     setupVoidDetection()
-
     -- Tab Téléportation
     local TeleportTab = Window:NewTab("Téléportation")
     local TeleportSection = TeleportTab:NewSection("Zones")
@@ -227,23 +216,83 @@ function loadScript()
     local EventTab = Window:NewTab("Événements")
     local EventSection = EventTab:NewSection("Événements actuels")
     
-    -- Variables de contrôle pour les toggles
-    local autoTpEventActive = false
-    local autoTpBreakablesActive = false
+    -- Fonction pour trouver les breakables les plus proches
+    local function findNearestBreakable()
+        local character = LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return nil end
+        
+        local closestBreakable = nil
+        local closestDistance = 1000
+        
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and 
+               (obj.Name:lower():find("break") or 
+                obj.Name:lower():find("crystal") or 
+                obj.Name:lower():find("coin") or
+                obj.Name:lower():find("chest")) then
+                
+                local distance = (obj.Position - character.HumanoidRootPart.Position).Magnitude
+                if distance <= 1000 and distance < closestDistance then
+                    closestBreakable = obj
+                    closestDistance = distance
+                end
+            end
+        end
+        
+        return closestBreakable
+    end
+    
+    -- Fonction pour téléporter au centre de la zone d'événement
+    local function teleportToCenterOfEvent()
+        -- Trouver le centre de la zone d'événement actuelle
+        local character = LocalPlayer.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+        
+        -- Chercher si des structures d'événement sont visibles autour du joueur
+        local eventStructures = {}
+        local minX, minY, minZ = math.huge, math.huge, math.huge
+        local maxX, maxY, maxZ = -math.huge, -math.huge, -math.huge
+        
+        -- Rechercher des structures qui pourraient être liées à l'événement
+        for _, obj in pairs(workspace:GetDescendants()) do
+            if obj:IsA("BasePart") and 
+               (obj.Name:lower():find("event") or 
+                obj.Name:lower():find("arena") or 
+                obj.Name:lower():find("stage")) then
+                
+                table.insert(eventStructures, obj)
+                
+                -- Mettre à jour les limites de la zone
+                minX = math.min(minX, obj.Position.X)
+                minY = math.min(minY, obj.Position.Y)
+                maxX = math.max(maxX, obj.Position.X)
+                maxY = math.max(maxY, obj.Position.Y)
+                minZ = math.min(minZ, obj.Position.Z)
+                maxZ = math.max(maxZ, obj.Position.Z)
+            end
+        end
+        
+        -- Si des structures ont été trouvées, calculer le centre
+        if #eventStructures > 0 then
+            local centerX = (minX + maxX) / 2
+            local centerY = (minY + maxY) / 2 + 5  -- Ajouter une hauteur pour éviter d'être sous le sol
+            local centerZ = (minZ + maxZ) / 2
+            
+            local centerPosition = Vector3.new(centerX, centerY, centerZ)
+            teleportTo(centerPosition)
+            return centerPosition
+        else
+            -- Si aucune structure n'est trouvée, utiliser la position actuelle comme centre
+            return character.HumanoidRootPart.Position
+        end
+    end
     
     -- Fonction pour équiper tous les pets avec infinite speed
     local function equipAllPetsInfiniteSpeed()
-        -- Attente pour s'assurer que les services du jeu sont chargés
         wait(1)
         
-        -- Tentative d'activer tous les pets
         local success, err = pcall(function()
-            -- Chercher les fonctions ou événements pour équiper les pets
-            -- Cette partie dépend de la structure spécifique du jeu PS99
-            
-            -- Exemple générique - à adapter selon l'API réelle du jeu
             if ReplicatedStorage:FindFirstChild("RemoteEvents") then
-                -- Essayer d'appliquer infinite speed à tous les pets équipés
                 if ReplicatedStorage.RemoteEvents:FindFirstChild("EquipBest") then
                     ReplicatedStorage.RemoteEvents.EquipBest:FireServer()
                     StarterGui:SetCore("SendNotification", {
@@ -253,12 +302,10 @@ function loadScript()
                     })
                 end
                 
-                -- Attendre que les pets soient équipés
                 wait(1)
                 
-                -- Activation de la vitesse infinie
                 if ReplicatedStorage.RemoteEvents:FindFirstChild("SetSpeed") then
-                    ReplicatedStorage.RemoteEvents.SetSpeed:FireServer(999999) -- Valeur très élevée pour "infinite"
+                    ReplicatedStorage.RemoteEvents.SetSpeed:FireServer(999999)
                     StarterGui:SetCore("SendNotification", {
                         Title = "Pets",
                         Text = "Vitesse infinie activée pour les pets",
@@ -280,57 +327,35 @@ function loadScript()
     -- Fonction pour cibler et casser les breakables à proximité
     local function targetBreakables()
         spawn(function()
+            local eventCenterPosition = nil
+            
             while autoTpBreakablesActive do
-                -- S'assurer que nous sommes à la position des breakables
-                if not isAtPosition(breakablesPosition, 50) then
-                    teleportTo(breakablesPosition)
-                    wait(1)
+                -- S'assurer que nous sommes dans la zone d'événement
+                if not eventCenterPosition then
+                    eventCenterPosition = teleportToCenterOfEvent()
                 end
                 
-                -- Chercher tous les breakables dans un rayon autour du joueur
-                local character = LocalPlayer.Character
-                if character and character:FindFirstChild("HumanoidRootPart") then
-                    -- Chercher les objets qui pourraient être des breakables
-                    local breakables = {}
+                -- Chercher le breakable le plus proche
+                local nearestBreakable = findNearestBreakable()
+                
+                if nearestBreakable then
+                    -- Téléporter au breakable
+                    teleportTo(nearestBreakable.Position)
                     
-                    -- Recherche générique - à adapter selon la structure du jeu
-                    for _, obj in pairs(workspace:GetDescendants()) do
-                        if obj:IsA("BasePart") and 
-                           (obj.Name:lower():find("break") or 
-                            obj.Name:lower():find("crystal") or 
-                            obj.Name:lower():find("coin") or
-                            obj.Name:lower():find("chest")) then
-                            
-                            local distance = (obj.Position - character.HumanoidRootPart.Position).Magnitude
-                            if distance <= 100 then -- Rayon de 100 studs
-                                table.insert(breakables, obj)
-                            end
-                        end
+                    -- Tentative d'interaction avec le breakable
+                    if ReplicatedStorage:FindFirstChild("RemoteEvents") and
+                       ReplicatedStorage.RemoteEvents:FindFirstChild("TargetBreakable") then
+                        ReplicatedStorage.RemoteEvents.TargetBreakable:FireServer(nearestBreakable)
                     end
                     
-                    -- S'il y a des breakables à proximité
-                    if #breakables > 0 then
-                        for _, breakable in ipairs(breakables) do
-                            -- Tentative d'interaction avec le breakable
-                            -- Cette partie dépend de la structure spécifique du jeu PS99
-                            if ReplicatedStorage:FindFirstChild("RemoteEvents") and
-                               ReplicatedStorage.RemoteEvents:FindFirstChild("TargetBreakable") then
-                                ReplicatedStorage.RemoteEvents.TargetBreakable:FireServer(breakable)
-                            end
-                            
-                            -- Petit délai pour éviter de surcharger les demandes
-                            wait(0.1)
-                        end
-                    else
-                        -- Si aucun breakable n'est trouvé, attendre un peu plus longtemps
-                        wait(1)
-                    end
+                    wait(0.5)
                 else
+                    -- Si aucun breakable n'est trouvé, retourner au centre de l'événement
+                    if eventCenterPosition then
+                        teleportTo(eventCenterPosition)
+                    end
                     wait(1)
                 end
-                
-                -- Attente avant la prochaine vérification
-                wait(0.5)
             end
         end)
     end
@@ -339,7 +364,6 @@ function loadScript()
     EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement au portail de l'événement", function(state)
         autoTpEventActive = state
         if state then
-            -- Vérifier si le joueur est déjà à l'une des positions
             local character = LocalPlayer.Character
             if not character or not character:FindFirstChild("HumanoidRootPart") then 
                 StarterGui:SetCore("SendNotification", {
@@ -350,36 +374,13 @@ function loadScript()
                 return 
             end
             
-            -- Vérifier si nous sommes déjà à l'événement
-            if isAtPosition(eventPosition, 50) then
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Auto TP Event",
-                    Text = "Vous êtes déjà à l'événement",
-                    Duration = 3
-                })
-                return
-            end
-            
-            -- Téléporter au portail d'événement
+            -- Téléporter uniquement au portail d'événement
             teleportTo(portalPosition)
             StarterGui:SetCore("SendNotification", {
                 Title = "Auto TP Event",
                 Text = "Téléporté au portail de l'événement",
                 Duration = 3
             })
-            
-            -- Attendre un moment pour que le portail nous téléporte à l'événement
-            wait(3)
-            
-            -- Vérifier si nous avons été téléportés à l'événement, sinon forcer la téléportation
-            if not isAtPosition(eventPosition, 100) then
-                teleportTo(eventPosition)
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Auto TP Event",
-                    Text = "Téléporté directement à l'événement",
-                    Duration = 3
-                })
-            end
         end
     end)
     
@@ -387,46 +388,27 @@ function loadScript()
     EventSection:NewToggle("Auto TP Breakables", "Téléporte et casse automatiquement les breakables", function(state)
         autoTpBreakablesActive = state
         if state then
-            -- Si Auto TP Event n'est pas activé, l'activer d'abord
-            if not autoTpEventActive then
-                -- Activer Auto TP Event temporairement
-                autoTpEventActive = true
+            local character = LocalPlayer.Character
+            if not character or not character:FindFirstChild("HumanoidRootPart") then
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto TP Breakables",
+                    Text = "Personnage non trouvé",
+                    Duration = 3
+                })
+                return
+            }
                 
-                -- Vérifier si nous sommes déjà à l'événement
-                if not isAtPosition(eventPosition, 100) then
-                    -- Téléporter d'abord au portail
-                    teleportTo(portalPosition)
-                    StarterGui:SetCore("SendNotification", {
-                        Title = "Auto TP Event",
-                        Text = "Téléporté au portail de l'événement",
-                        Duration = 3
-                    })
-                    
-                    -- Attendre un moment pour que le portail nous téléporte
-                    wait(3)
-                    
-                    -- Vérifier si nous avons été téléportés à l'événement, sinon forcer la téléportation
-                    if not isAtPosition(eventPosition, 100) then
-                        teleportTo(eventPosition)
-                        StarterGui:SetCore("SendNotification", {
-                            Title = "Auto TP Event",
-                            Text = "Téléporté directement à l'événement",
-                            Duration = 3
-                        })
-                    end
-                end
-            end
-            
-            -- Téléporter aux breakables (même position que l'événement dans ce cas)
-            teleportTo(breakablesPosition)
-            StarterGui:SetCore("SendNotification", {
-                Title = "Auto TP Breakables",
-                Text = "Téléporté à la zone des breakables",
-                Duration = 3
-            })
-            
             -- Équiper tous les pets avec infinite speed
             equipAllPetsInfiniteSpeed()
+            
+            -- Trouver le centre de l'événement et commencer à cibler les breakables
+            teleportToCenterOfEvent()
+            
+            StarterGui:SetCore("SendNotification", {
+                Title = "Auto TP Breakables",
+                Text = "Recherche et ciblage des breakables activés",
+                Duration = 3
+            })
             
             -- Démarrer le ciblage automatique des breakables
             targetBreakables()
@@ -473,7 +455,7 @@ function createKeyUI()
     KeyUI.Parent = game:GetService("Players").LocalPlayer:WaitForChild("PlayerGui")
     KeyUI.ResetOnSpawn = false
     KeyUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    KeyUI.DisplayOrder = 999 -- S'assurer que l'interface est au premier plan
+    KeyUI.DisplayOrder = 999
         
     local MainFrame = Instance.new("Frame")
     MainFrame.Name = "MainFrame"
@@ -517,7 +499,7 @@ function createKeyUI()
     KeyInput.Text = ""
     KeyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
     KeyInput.TextSize = 16
-    KeyInput.ClearTextOnFocus = false -- Garde le texte lors du focus pour mobile
+    KeyInput.ClearTextOnFocus = false
     
     local UICornerInput = Instance.new("UICorner")
     UICornerInput.CornerRadius = UDim.new(0, 6)
@@ -550,7 +532,6 @@ function createKeyUI()
     StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     StatusLabel.TextSize = 14
     
-    -- Ajouter un indicateur visuel que l'interface est chargée
     game:GetService("StarterGui"):SetCore("SendNotification", {
         Title = "Interface de clé",
         Text = "Interface de clé chargée",
