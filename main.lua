@@ -554,10 +554,64 @@ local function createKeyUI()
     UICornerButton.Parent = SubmitButton
 
     local StatusLabel = Instance.new("TextLabel")
-    StatusLabel.Name = "StatusLabel"
-    StatusLabel.Parent = MainFrame
-    StatusLabel.BackgroundTransparency = 1
-    StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
-    StatusLabel.Size = UDim2.new(1, 0, 0, 30)
-    StatusLabel.Font = Enum.Font.Gotham
-    S
+StatusLabel.Name = "StatusLabel"
+StatusLabel.Parent = MainFrame
+StatusLabel.BackgroundTransparency = 1
+StatusLabel.Position = UDim2.new(0, 0, 0.8, 0)
+StatusLabel.Size = UDim2.new(1, 0, 0, 30)
+StatusLabel.Font = Enum.Font.Gotham
+StatusLabel.Text = "Entrez la clé puis cliquez sur Valider"
+StatusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+StatusLabel.TextSize = 14
+    
+SubmitButton.MouseEnter:Connect(function()
+    SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 140, 240)
+end)
+    
+SubmitButton.MouseLeave:Connect(function()
+    SubmitButton.BackgroundColor3 = Color3.fromRGB(0, 120, 215)
+end)
+    
+SubmitButton.MouseButton1Click:Connect(function()
+    if KeyInput.Text == correctKey then
+        StatusLabel.Text = "Clé valide! Chargement..."
+        StatusLabel.TextColor3 = Color3.fromRGB(0, 255, 0)
+        
+        for i = 1, 3 do
+            wait(0.3)
+            StatusLabel.Text = StatusLabel.Text .. "."
+        end
+        
+        wait(0.5)
+        KeyUI:Destroy()
+        
+        local success, errorMsg = pcall(createUI)
+        if not success then
+            wait(1)
+            local errorUI = createKeyUI()
+            local statusLabel = errorUI.MainFrame.StatusLabel
+            statusLabel.Text = "ERREUR: Impossible de charger le script"
+            statusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+            wait(3)
+            statusLabel.Text = "Erreur: " .. tostring(errorMsg)
+        end
+    else
+        StatusLabel.Text = "Clé invalide! Essayez à nouveau."
+        StatusLabel.TextColor3 = Color3.fromRGB(255, 0, 0)
+    end
+end)
+    
+KeyInput.FocusLost:Connect(function(enterPressed)
+    if enterPressed then
+        SubmitButton.MouseButton1Click:Fire()
+    end
+end)
+    
+return KeyUI
+end
+
+-- Démarrage de l'application
+createKeyUI()
+
+-- Message de confirmation
+notify("PS99 Mobile Pro", "Script chargé avec succès!", 3)
