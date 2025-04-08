@@ -22,6 +22,8 @@ local portalPosition = Vector3.new(174.04, 16.96, -141.07)
 
 -- Fonction notification optimisée pour mobile
 local function notify(title, text, duration)
+    if not showNotifications then return end
+    
     pcall(function()
         StarterGui:SetCore("SendNotification", {
             Title = title, 
@@ -229,6 +231,7 @@ local function createBackupMainUI()
             notify("Event", "Vous avez déjà été téléporté à l'événement", 2)
         end
     end)
+    
     -- Créer un onglet pour Notifications
     local notifButton = Instance.new("TextButton")
     notifButton.Name = "NotifToggle"
@@ -393,6 +396,157 @@ local function createMainInterface()
     notify("PS99 Mobile Pro", "Interface RayField chargée avec succès!", 3)
 end
 
+-- Interface de clé de secours
+local function createBackupKeyUI()
+    local keyGui = Instance.new("ScreenGui")
+    keyGui.Name = "PS99KeySystem"
+    keyGui.ResetOnSpawn = false
+    
+    -- Rendre l'interface persistante
+    if syn and syn.protect_gui then
+        syn.protect_gui(keyGui)
+        keyGui.Parent = CoreGui
+    elseif gethui then
+        keyGui.Parent = gethui()
+    else
+        keyGui.Parent = CoreGui
+    end
+    
+    -- Cadre principal
+    local mainFrame = Instance.new("Frame")
+    mainFrame.Name = "KeyFrame"
+    mainFrame.Size = UDim2.new(0, 300, 0, 180)
+    mainFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
+    mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
+    mainFrame.BorderSizePixel = 0
+    mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    mainFrame.Active = true
+    mainFrame.Draggable = true
+    mainFrame.Parent = keyGui
+    
+    -- Arrondir les coins
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 10)
+    UICorner.Parent = mainFrame
+    
+    -- Titre
+    local titleBar = Instance.new("Frame")
+    titleBar.Name = "TitleBar"
+    titleBar.Size = UDim2.new(1, 0, 0, 40)
+    titleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    titleBar.BorderSizePixel = 0
+    titleBar.Parent = mainFrame
+    
+    local titleCorner = Instance.new("UICorner")
+    titleCorner.CornerRadius = UDim.new(0, 10)
+    titleCorner.Parent = titleBar
+    
+    local titleText = Instance.new("TextLabel")
+    titleText.Name = "Title"
+    titleText.Size = UDim2.new(1, -10, 1, 0)
+    titleText.Position = UDim2.new(0, 10, 0, 0)
+    titleText.BackgroundTransparency = 1
+    titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleText.TextSize = 18
+    titleText.Font = Enum.Font.SourceSansBold
+    titleText.Text = "PS99 Mobile Pro - Authentification"
+    titleText.TextXAlignment = Enum.TextXAlignment.Left
+    titleText.Parent = titleBar
+    
+    -- Texte d'instruction
+    local instructionText = Instance.new("TextLabel")
+    instructionText.Name = "Instruction"
+    instructionText.Size = UDim2.new(1, -20, 0, 30)
+    instructionText.Position = UDim2.new(0, 10, 0, 50)
+    instructionText.BackgroundTransparency = 1
+    instructionText.TextColor3 = Color3.fromRGB(255, 255, 255)
+    instructionText.TextSize = 16
+    instructionText.Font = Enum.Font.SourceSans
+    instructionText.Text = "Entrez votre clé d'activation:"
+    instructionText.TextXAlignment = Enum.TextXAlignment.Left
+    instructionText.Parent = mainFrame
+    
+    -- Champ de texte pour la clé (TextBox fonctionnelle sur mobile)
+    local keyInput = Instance.new("TextBox")
+    keyInput.Name = "KeyInput"
+    keyInput.Size = UDim2.new(1, -20, 0, 40)
+    keyInput.Position = UDim2.new(0, 10, 0, 85)
+    keyInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+    keyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
+    keyInput.TextSize = 16
+    keyInput.Font = Enum.Font.SourceSans
+    keyInput.PlaceholderText = "Entrez votre clé ici..."
+    keyInput.Text = ""
+    keyInput.ClearTextOnFocus = false
+    keyInput.Parent = mainFrame
+    
+    local keyInputCorner = Instance.new("UICorner")
+    keyInputCorner.CornerRadius = UDim.new(0, 8)
+    keyInputCorner.Parent = keyInput
+    
+    -- Bouton de validation
+    local validateButton = Instance.new("TextButton")
+    validateButton.Name = "ValidateButton"
+    validateButton.Size = UDim2.new(1, -20, 0, 40)
+    validateButton.Position = UDim2.new(0, 10, 0, 135)
+    validateButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+    validateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    validateButton.TextSize = 16
+    validateButton.Font = Enum.Font.SourceSansBold
+    validateButton.Text = "VALIDER LA CLÉ"
+    validateButton.Parent = mainFrame
+    
+    local validateCorner = Instance.new("UICorner")
+    validateCorner.CornerRadius = UDim.new(0, 8)
+    validateCorner.Parent = validateButton
+    
+    -- Fonction pour valider la clé (CORRIGÉE)
+    validateButton.MouseButton1Click:Connect(function()
+        local enteredKey = keyInput.Text:gsub("%s+", "") -- Supprime les espaces indésirables
+        
+        -- Vérification directe avec la clé correcte
+        if enteredKey == correctKey then
+            -- Animation de succès
+            validateButton.BackgroundColor3 = Color3.fromRGB(70, 180, 70)
+            validateButton.Text = "CLÉ VALIDE!"
+            
+            -- Notification de succès
+            notify("Succès!", "Authentification réussie!", 2)
+            
+            -- Attendre un peu avant de fermer l'interface de clé
+            wait(1)
+            keyGui:Destroy()
+            
+            -- Charger l'interface principale
+            createMainInterface()
+        else
+            -- Animation d'échec
+            validateButton.BackgroundColor3 = Color3.fromRGB(180, 70, 70)
+            validateButton.Text = "CLÉ INVALIDE!"
+            
+            -- Notification d'erreur sans afficher la clé
+            notify("Erreur", "Clé d'authentification incorrecte", 3)
+            
+            -- Effet de secousse
+            local originalPosition = mainFrame.Position
+            for i = 1, 3 do
+                mainFrame.Position = originalPosition + UDim2.new(0.01, 0, 0, 0)
+                wait(0.05)
+                mainFrame.Position = originalPosition - UDim2.new(0.01, 0, 0, 0)
+                wait(0.05)
+            end
+            mainFrame.Position = originalPosition
+            
+            -- Réinitialiser le bouton après un délai
+            wait(1)
+            validateButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
+            validateButton.Text = "VALIDER LA CLÉ"
+        end
+    end)
+    
+    return keyGui
+end
+
 -- Interface de clé avec RayField
 local function createKeyUI()
     notify("PS99 Mobile Pro", "Création de l'interface de clé...", 2)
@@ -400,153 +554,7 @@ local function createKeyUI()
     local Rayfield = loadRayField()
     if not Rayfield then
         -- Si RayField ne charge pas, créer une interface de clé de secours
-        local keyGui = Instance.new("ScreenGui")
-        keyGui.Name = "PS99KeySystem"
-        keyGui.ResetOnSpawn = false
-        
-        -- Rendre l'interface persistante
-        if syn and syn.protect_gui then
-            syn.protect_gui(keyGui)
-            keyGui.Parent = CoreGui
-        elseif gethui then
-            keyGui.Parent = gethui()
-        else
-            keyGui.Parent = CoreGui
-        end
-        
-        -- Cadre principal
-        local mainFrame = Instance.new("Frame")
-        mainFrame.Name = "KeyFrame"
-        mainFrame.Size = UDim2.new(0, 300, 0, 180)
-        mainFrame.Position = UDim2.new(0.5, -150, 0.5, -90)
-        mainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
-        mainFrame.BorderSizePixel = 0
-        mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
-        mainFrame.Active = true
-        mainFrame.Draggable = true
-        mainFrame.Parent = keyGui
-        
-        -- Arrondir les coins
-        local UICorner = Instance.new("UICorner")
-        UICorner.CornerRadius = UDim.new(0, 10)
-        UICorner.Parent = mainFrame
-        
-        -- Titre
-        local titleBar = Instance.new("Frame")
-        titleBar.Name = "TitleBar"
-        titleBar.Size = UDim2.new(1, 0, 0, 40)
-        titleBar.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
-        titleBar.BorderSizePixel = 0
-        titleBar.Parent = mainFrame
-        
-        local titleCorner = Instance.new("UICorner")
-        titleCorner.CornerRadius = UDim.new(0, 10)
-        titleCorner.Parent = titleBar
-        
-        local titleText = Instance.new("TextLabel")
-        titleText.Name = "Title"
-        titleText.Size = UDim2.new(1, -10, 1, 0)
-        titleText.Position = UDim2.new(0, 10, 0, 0)
-        titleText.BackgroundTransparency = 1
-        titleText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        titleText.TextSize = 18
-        titleText.Font = Enum.Font.SourceSansBold
-        titleText.Text = "PS99 Mobile Pro - Authentification"
-        titleText.TextXAlignment = Enum.TextXAlignment.Left
-        titleText.Parent = titleBar
-        
-        -- Texte d'instruction
-        local instructionText = Instance.new("TextLabel")
-        instructionText.Name = "Instruction"
-        instructionText.Size = UDim2.new(1, -20, 0, 30)
-        instructionText.Position = UDim2.new(0, 10, 0, 50)
-        instructionText.BackgroundTransparency = 1
-        instructionText.TextColor3 = Color3.fromRGB(255, 255, 255)
-        instructionText.TextSize = 16
-        instructionText.Font = Enum.Font.SourceSans
-        instructionText.Text = "Entrez votre clé d'activation:"
-        instructionText.TextXAlignment = Enum.TextXAlignment.Left
-        instructionText.Parent = mainFrame
-        
-        -- Champ de texte pour la clé (TextBox fonctionnelle sur mobile)
-        local keyInput = Instance.new("TextBox")
-        keyInput.Name = "KeyInput"
-        keyInput.Size = UDim2.new(1, -20, 0, 40)
-        keyInput.Position = UDim2.new(0, 10, 0, 85)
-        keyInput.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
-        keyInput.TextColor3 = Color3.fromRGB(255, 255, 255)
-        keyInput.TextSize = 16
-        keyInput.Font = Enum.Font.SourceSans
-        keyInput.PlaceholderText = "Entrez votre clé ici..."
-        keyInput.Text = ""
-        keyInput.ClearTextOnFocus = false
-        keyInput.Parent = mainFrame
-        
-        local keyInputCorner = Instance.new("UICorner")
-        keyInputCorner.CornerRadius = UDim.new(0, 8)
-        keyInputCorner.Parent = keyInput
-        
-        -- Bouton de validation
-        local validateButton = Instance.new("TextButton")
-        validateButton.Name = "ValidateButton"
-        validateButton.Size = UDim2.new(1, -20, 0, 40)
-        validateButton.Position = UDim2.new(0, 10, 0, 135)
-        validateButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-        validateButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-        validateButton.TextSize = 16
-        validateButton.Font = Enum.Font.SourceSansBold
-        validateButton.Text = "VALIDER LA CLÉ"
-        validateButton.Parent = mainFrame
-        
-        local validateCorner = Instance.new("UICorner")
-        validateCorner.CornerRadius = UDim.new(0, 8)
-        validateCorner.Parent = validateButton
-        
-        -- Fonction pour valider la clé (CORRIGÉE)
-        validateButton.MouseButton1Click:Connect(function()
-            local enteredKey = keyInput.Text:gsub("%s+", "") -- Supprime les espaces indésirables
-            
-            -- Vérification directe avec la clé correcte
-            if enteredKey == correctKey then
-                -- Animation de succès
-                validateButton.BackgroundColor3 = Color3.fromRGB(70, 180, 70)
-                validateButton.Text = "CLÉ VALIDE!"
-                
-                -- Notification de succès
-                notify("Succès!", "Authentification réussie!", 2)
-                
-                -- Attendre un peu avant de fermer l'interface de clé
-                wait(1)
-                keyGui:Destroy()
-                
-                -- Charger l'interface principale
-                createMainInterface()
-            else
-                -- Animation d'échec
-                validateButton.BackgroundColor3 = Color3.fromRGB(180, 70, 70)
-                validateButton.Text = "CLÉ INVALIDE!"
-                
-                -- Afficher la clé fournie pour le débogage
-                notify("Erreur", string.format("Clé invalide: '%s'. La clé est 'zekyu'", enteredKey), 3)
-                
-                -- Effet de secousse
-                local originalPosition = mainFrame.Position
-                for i = 1, 3 do
-                    mainFrame.Position = originalPosition + UDim2.new(0.01, 0, 0, 0)
-                    wait(0.05)
-                    mainFrame.Position = originalPosition - UDim2.new(0.01, 0, 0, 0)
-                    wait(0.05)
-                end
-                mainFrame.Position = originalPosition
-                
-                -- Réinitialiser le bouton après un délai
-                wait(1)
-                validateButton.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-                validateButton.Text = "VALIDER LA CLÉ"
-            end
-        end)
-        
-        return keyGui
+        return createBackupKeyUI()
     else
         -- Utiliser RayField pour l'interface de clé
         local Window = Rayfield:CreateWindow({
