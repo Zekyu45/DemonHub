@@ -2,7 +2,7 @@
 -- Version avec système de secours si l'UI ne charge pas
 
 -- Variables principales
-local correctKey = "zekyu"  -- La clé est "zekyu"
+local correctKey = "zekyu"  -- La clé est "zekyu" 
 local autoTpEventActive = false
 local showNotifications = true
 local hasBeenTeleported = false
@@ -121,6 +121,7 @@ local function createBackupMainUI()
     local UICorner = Instance.new("UICorner")
     UICorner.CornerRadius = UDim.new(0, 10)
     UICorner.Parent = mainFrame
+    
     -- Titre de l'application
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
@@ -144,7 +145,6 @@ local function createBackupMainUI()
     titleText.Text = "PS99 Mobile Pro"
     titleText.TextXAlignment = Enum.TextXAlignment.Left
     titleText.Parent = titleBar
-    
     -- Bouton de fermeture
     local closeButton = Instance.new("TextButton")
     closeButton.Name = "CloseButton"
@@ -500,12 +500,14 @@ local function createBackupKeyUI()
     validateCorner.CornerRadius = UDim.new(0, 8)
     validateCorner.Parent = validateButton
     
-    -- Fonction pour valider la clé (CORRIGÉE)
+    -- CORRECTION: Fonction pour valider la clé
     validateButton.MouseButton1Click:Connect(function()
-        local enteredKey = keyInput.Text:gsub("%s+", "") -- Supprime les espaces indésirables
+        -- Nettoyer les espaces éventuels et vérifier en ignorant la casse
+        local enteredKey = keyInput.Text:gsub("%s+", ""):lower() 
+        local correctKeyLower = correctKey:lower()
         
         -- Vérification directe avec la clé correcte
-        if enteredKey == correctKey then
+        if enteredKey == correctKeyLower then
             -- Animation de succès
             validateButton.BackgroundColor3 = Color3.fromRGB(70, 180, 70)
             validateButton.Text = "CLÉ VALIDE!"
@@ -550,13 +552,18 @@ end
 -- Interface de clé avec RayField
 local function createKeyUI()
     notify("PS99 Mobile Pro", "Création de l'interface de clé...", 2)
+
+    -- CORRECTION: Vérifier d'abord si on doit utiliser l'interface de secours
+    if useBackupUI then
+        return createBackupKeyUI()
+    end
     
     local Rayfield = loadRayField()
     if not Rayfield then
         -- Si RayField ne charge pas, créer une interface de clé de secours
         return createBackupKeyUI()
     else
-        -- Utiliser RayField pour l'interface de clé
+        -- CORRECTION: Utiliser RayField pour l'interface de clé avec correction de la clé
         local Window = Rayfield:CreateWindow({
             Name = "PS99 Mobile Pro",
             LoadingTitle = "PS99 Mobile Pro - Système d'authentification",
@@ -579,7 +586,7 @@ local function createKeyUI()
                 FileName = "PS99Key",
                 SaveKey = false,
                 GrabKeyFromSite = false,
-                Key = {correctKey}
+                Key = correctKey  -- CORRECTION: Utiliser correctKey directement au lieu d'un tableau
             }
         })
         
@@ -601,7 +608,7 @@ local function createKeyUI()
         else
             -- Si la création de la fenêtre échoue, revenir à l'interface de secours
             useBackupUI = true
-            return createBackupMainUI()
+            return createBackupKeyUI()
         end
     end
 end
