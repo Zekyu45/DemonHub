@@ -1,5 +1,5 @@
 -- Script PS99 simplifié avec UI amélioré et draggable
--- Version simplifiée avec AFK, TP Spawn World + Event et Auto TP Event
+-- Version modifiée avec AFK, TP Event et Auto TP Breakables
 -- Version corrigée pour éviter les chutes dans le vide
 
 -- Système de clé d'authentification
@@ -83,12 +83,12 @@ function loadScript()
     local MainTab = Window:NewTab("Principal")
     local MainSection = MainTab:NewSection("Fonctionnalités")
 
-    -- Position du Spawn World
-    local spawnWorldPosition = Vector3.new(121.71, 25.54, -204.95)
     -- Position du portail pour aller à l'événement
     local portalPosition = Vector3.new(174.04, 16.96, -141.07)
     -- Position réelle de l'événement après le chargement
     local eventPosition = Vector3.new(-24529.11, 407.52, -1514.52)
+    -- Position des breakables (même que l'événement dans ce cas)
+    local breakablesPosition = Vector3.new(-24529.11, 407.52, -1514.52)
 
     -- Vérification si une partie du jeu est chargée
     local function isAreaLoaded(position, radius)
@@ -141,7 +141,6 @@ function loadScript()
         
         -- Attendre que la zone soit chargée (max 8 secondes)
         local loaded = waitForAreaLoad(position, 8)
-        
         if loaded then
             -- 3. Finaliser la téléportation à la position exacte
             character.HumanoidRootPart.CFrame = CFrame.new(position)
@@ -187,31 +186,6 @@ function loadScript()
         return distance <= tolerance
     end
 
-    -- Auto Téléport au Spawn World - Version corrigée
-    MainSection:NewToggle("Auto TP Spawn World", "Téléporte automatiquement au Spawn World", function(state)
-        getgenv().autoTpSpawn = state
-        if state then
-            spawn(function()
-                while getgenv().autoTpSpawn do
-                    -- Essayer de téléporter
-                    teleportTo(spawnWorldPosition)
-                    
-                    -- Vérifier si la téléportation a réussi
-                    if not isAtPosition(spawnWorldPosition, 20) then
-                        StarterGui:SetCore("SendNotification", {
-                            Title = "Auto TP",
-                            Text = "Échec de téléportation, nouvelle tentative...",
-                            Duration = 2
-                        })
-                    end
-                    
-                    -- Pause plus longue pour permettre un chargement complet
-                    wait(10)  -- Attendre 10 secondes entre chaque téléportation
-                end
-            end)
-        end
-    end)
-
     -- Fonction de détection de chute dans le vide
     local function setupVoidDetection()
         spawn(function()
@@ -225,12 +199,12 @@ function loadScript()
                     if position.Y < -50 then
                         StarterGui:SetCore("SendNotification", {
                             Title = "Protection anti-vide",
-                            Text = "Détection de chute, téléportation au spawn...",
+                            Text = "Détection de chute, téléportation à l'événement...",
                             Duration = 3
                         })
                         
-                        -- Téléporter au spawn avec une hauteur plus importante
-                        local safePosition = Vector3.new(spawnWorldPosition.X, spawnWorldPosition.Y + 10, spawnWorldPosition.Z)
+                        -- Téléporter à l'événement avec une hauteur plus importante
+                        local safePosition = Vector3.new(eventPosition.X, eventPosition.Y + 10, eventPosition.Z)
                         character.HumanoidRootPart.CFrame = CFrame.new(safePosition)
                         
                         -- Attendre un peu et stabiliser
@@ -249,25 +223,121 @@ function loadScript()
     local TeleportTab = Window:NewTab("Téléportation")
     local TeleportSection = TeleportTab:NewSection("Zones")
 
-    -- Téléportation au Spawn World
-    TeleportSection:NewButton("Spawn World", "Téléporte au Spawn World", function()
-        local teleportSuccess = teleportTo(spawnWorldPosition)
-        
-        if teleportSuccess then
-            StarterGui:SetCore("SendNotification", {
-                Title = "Téléportation",
-                Text = "Téléporté au Spawn World",
-                Duration = 3
-            })
-        end
-    end)
-    
     -- Tab Événements
     local EventTab = Window:NewTab("Événements")
     local EventSection = EventTab:NewSection("Événements actuels")
     
-    -- Auto Téléport à l'événement (version toggle uniquement)
-    EventSection:NewToggle("Auto TP Event", "Téléporte une fois au portail de l'événement", function(state)
+    -- Variables de contrôle pour les toggles
+    local autoTpEventActive = false
+    local autoTpBreakablesActive = false
+    
+    -- Fonction pour équiper tous les pets avec infinite speed
+    local function equipAllPetsInfiniteSpeed()
+        -- Attente pour s'assurer que les services du jeu sont chargés
+        wait(1)
+        
+        -- Tentative d'activer tous les pets
+        local success, err = pcall(function()
+            -- Chercher les fonctions ou événements pour équiper les pets
+            -- Cette partie dépend de la structure spécifique du jeu PS99
+            
+            -- Exemple générique - à adapter selon l'API réelle du jeu
+            if ReplicatedStorage:FindFirstChild("RemoteEvents") then
+                -- Essayer d'appliquer infinite speed à tous les pets équipés
+                if ReplicatedStorage.RemoteEvents:FindFirstChild("EquipBest") then
+                    ReplicatedStorage.RemoteEvents.EquipBest:FireServer()
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Pets",
+                        Text = "Équipement des meilleurs pets...",
+                        Duration = 2
+                    })
+                end
+                
+                -- Attendre que les pets soient équipés
+                wait(1)
+                
+                -- Activation de la vitesse infinie
+                if ReplicatedStorage.RemoteEvents:FindFirstChild("SetSpeed") then
+                    ReplicatedStorage.RemoteEvents.SetSpeed:FireServer(999999) -- Valeur très élevée pour "infinite"
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Pets",
+                        Text = "Vitesse infinie activée pour les pets",
+                        Duration = 2
+                    })
+                end
+            end
+        end)
+        
+        if not success then
+            StarterGui:SetCore("SendNotification", {
+                Title = "Erreur Pets",
+                Text = "Impossible d'équiper les pets: " .. tostring(err):sub(1, 50),
+                Duration = 3
+            })
+        end
+    end
+    
+    -- Fonction pour cibler et casser les breakables à proximité
+    local function targetBreakables()
+        spawn(function()
+            while autoTpBreakablesActive do
+                -- S'assurer que nous sommes à la position des breakables
+                if not isAtPosition(breakablesPosition, 50) then
+                    teleportTo(breakablesPosition)
+                    wait(1)
+                end
+                
+                -- Chercher tous les breakables dans un rayon autour du joueur
+                local character = LocalPlayer.Character
+                if character and character:FindFirstChild("HumanoidRootPart") then
+                    -- Chercher les objets qui pourraient être des breakables
+                    local breakables = {}
+                    
+                    -- Recherche générique - à adapter selon la structure du jeu
+                    for _, obj in pairs(workspace:GetDescendants()) do
+                        if obj:IsA("BasePart") and 
+                           (obj.Name:lower():find("break") or 
+                            obj.Name:lower():find("crystal") or 
+                            obj.Name:lower():find("coin") or
+                            obj.Name:lower():find("chest")) then
+                            
+                            local distance = (obj.Position - character.HumanoidRootPart.Position).Magnitude
+                            if distance <= 100 then -- Rayon de 100 studs
+                                table.insert(breakables, obj)
+                            end
+                        end
+                    end
+                    
+                    -- S'il y a des breakables à proximité
+                    if #breakables > 0 then
+                        for _, breakable in ipairs(breakables) do
+                            -- Tentative d'interaction avec le breakable
+                            -- Cette partie dépend de la structure spécifique du jeu PS99
+                            if ReplicatedStorage:FindFirstChild("RemoteEvents") and
+                               ReplicatedStorage.RemoteEvents:FindFirstChild("TargetBreakable") then
+                                ReplicatedStorage.RemoteEvents.TargetBreakable:FireServer(breakable)
+                            end
+                            
+                            -- Petit délai pour éviter de surcharger les demandes
+                            wait(0.1)
+                        end
+                    else
+                        -- Si aucun breakable n'est trouvé, attendre un peu plus longtemps
+                        wait(1)
+                    end
+                else
+                    wait(1)
+                end
+                
+                -- Attente avant la prochaine vérification
+                wait(0.5)
+            end
+        end)
+    end
+    
+    -- Auto Téléport à l'événement
+    EventSection:NewToggle("Auto TP Event", "Téléporte automatiquement au portail de l'événement", function(state)
+        autoTpEventActive = state
         if state then
             -- Vérifier si le joueur est déjà à l'une des positions
             local character = LocalPlayer.Character
@@ -280,8 +350,6 @@ function loadScript()
                 return 
             end
             
-            local currentPosition = character.HumanoidRootPart.Position
-            
             -- Vérifier si nous sommes déjà à l'événement
             if isAtPosition(eventPosition, 50) then
                 StarterGui:SetCore("SendNotification", {
@@ -292,21 +360,80 @@ function loadScript()
                 return
             end
             
-            -- Vérifier si nous sommes déjà au portail
-            if isAtPosition(portalPosition, 10) then
-                StarterGui:SetCore("SendNotification", {
-                    Title = "Auto TP Event",
-                    Text = "Vous êtes déjà au portail de l'événement",
-                    Duration = 3
-                })
-                return
-            end
-            
-            -- Nous ne sommes pas encore au portail, donc téléporter une seule fois
+            -- Téléporter au portail d'événement
             teleportTo(portalPosition)
             StarterGui:SetCore("SendNotification", {
                 Title = "Auto TP Event",
                 Text = "Téléporté au portail de l'événement",
+                Duration = 3
+            })
+            
+            -- Attendre un moment pour que le portail nous téléporte à l'événement
+            wait(3)
+            
+            -- Vérifier si nous avons été téléportés à l'événement, sinon forcer la téléportation
+            if not isAtPosition(eventPosition, 100) then
+                teleportTo(eventPosition)
+                StarterGui:SetCore("SendNotification", {
+                    Title = "Auto TP Event",
+                    Text = "Téléporté directement à l'événement",
+                    Duration = 3
+                })
+            end
+        end
+    end)
+    
+    -- Auto Téléport aux Breakables
+    EventSection:NewToggle("Auto TP Breakables", "Téléporte et casse automatiquement les breakables", function(state)
+        autoTpBreakablesActive = state
+        if state then
+            -- Si Auto TP Event n'est pas activé, l'activer d'abord
+            if not autoTpEventActive then
+                -- Activer Auto TP Event temporairement
+                autoTpEventActive = true
+                
+                -- Vérifier si nous sommes déjà à l'événement
+                if not isAtPosition(eventPosition, 100) then
+                    -- Téléporter d'abord au portail
+                    teleportTo(portalPosition)
+                    StarterGui:SetCore("SendNotification", {
+                        Title = "Auto TP Event",
+                        Text = "Téléporté au portail de l'événement",
+                        Duration = 3
+                    })
+                    
+                    -- Attendre un moment pour que le portail nous téléporte
+                    wait(3)
+                    
+                    -- Vérifier si nous avons été téléportés à l'événement, sinon forcer la téléportation
+                    if not isAtPosition(eventPosition, 100) then
+                        teleportTo(eventPosition)
+                        StarterGui:SetCore("SendNotification", {
+                            Title = "Auto TP Event",
+                            Text = "Téléporté directement à l'événement",
+                            Duration = 3
+                        })
+                    end
+                end
+            end
+            
+            -- Téléporter aux breakables (même position que l'événement dans ce cas)
+            teleportTo(breakablesPosition)
+            StarterGui:SetCore("SendNotification", {
+                Title = "Auto TP Breakables",
+                Text = "Téléporté à la zone des breakables",
+                Duration = 3
+            })
+            
+            -- Équiper tous les pets avec infinite speed
+            equipAllPetsInfiniteSpeed()
+            
+            -- Démarrer le ciblage automatique des breakables
+            targetBreakables()
+        else
+            StarterGui:SetCore("SendNotification", {
+                Title = "Auto TP Breakables",
+                Text = "Auto TP Breakables désactivé",
                 Duration = 3
             })
         end
@@ -324,7 +451,7 @@ function loadScript()
     -- Afficher message de bienvenue
     StarterGui:SetCore("SendNotification", {
         Title = "PS99 Mobile Pro",
-        Text = "Script simplifié chargé avec succès!",
+        Text = "Script modifié chargé avec succès!",
         Duration = 5
     })
 
