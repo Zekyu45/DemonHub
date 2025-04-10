@@ -1,4 +1,5 @@
 -- PS99 Mobile Pro - Système d'authentification par clé optimisé pour mobile
+-- Version corrigée pour l'erreur "attempt to concatenate nil with string"
 
 -- Variables principales
 local correctKey = "zekyu"  -- La clé reste "zekyu"
@@ -8,100 +9,116 @@ local antiAfkEnabled = false
 -- Services
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
-local CoreGui = game:GetService("CoreGui")
 
--- Fonction pour créer une notification
+-- Fonction pour créer une notification avec vérification
 local function notify(title, text, duration)
-    local StarterGui = game:GetService("StarterGui")
-    pcall(function()
-        StarterGui:SetCore("SendNotification", {
-            Title = title,
-            Text = text,
-            Duration = duration or 2,
+    -- Vérification des valeurs nil
+    title = title or "PS99 Mobile Pro"
+    text = text or "Action effectuée"
+    duration = duration or 2
+    
+    local success, err = pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = tostring(title),
+            Text = tostring(text),
+            Duration = duration,
             Icon = "rbxassetid://4483345998",
             Button1 = "OK"
         })
     end)
+    
+    if not success then
+        warn("Notification échouée: " .. tostring(err))
+    end
 end
 
 -- Message de démarrage initial
 notify("PS99 Mobile Pro", "Démarrage de l'application...", 3)
 
--- Nettoyer les anciennes instances d'UI
+-- Nettoyer les anciennes instances d'UI avec vérification
 local function clearPreviousUI(name)
-    for _, gui in pairs(CoreGui:GetChildren()) do
-        if gui.Name == name then
-            gui:Destroy()
+    if not name then return end
+    
+    pcall(function()
+        for _, gui in ipairs(game:GetService("CoreGui"):GetChildren()) do
+            if gui and gui.Name == name then
+                gui:Destroy()
+            end
         end
-    end
-    for _, gui in pairs(game.Players.LocalPlayer.PlayerGui:GetChildren()) do
-        if gui.Name == name then
-            gui:Destroy()
+    end)
+    
+    pcall(function()
+        for _, gui in ipairs(LocalPlayer.PlayerGui:GetChildren()) do
+            if gui and gui.Name == name then
+                gui:Destroy()
+            end
         end
-    end
+    end)
 end
 
 -- Nettoyer les interfaces précédentes au démarrage
 clearPreviousUI("Rayfield")
-clearPreviousUI("PS99KeySystem")
 
--- Fonction Anti-AFK
+-- Fonction Anti-AFK sécurisée
 local function setupAntiAfk()
     local connection
     local VirtualUser = game:GetService("VirtualUser")
     
     return function(state)
-        if state then
-            if not connection then
-                connection = LocalPlayer.Idled:Connect(function()
-                    VirtualUser:CaptureController()
-                    VirtualUser:ClickButton2(Vector2.new())
-                    notify("Anti-AFK", "Système anti-AFK activé", 2)
-                end)
-                notify("Anti-AFK", "Système anti-AFK démarré", 2)
+        pcall(function()
+            if state then
+                if not connection then
+                    connection = LocalPlayer.Idled:Connect(function()
+                        VirtualUser:CaptureController()
+                        VirtualUser:ClickButton2(Vector2.new())
+                        notify("Anti-AFK", "Système anti-AFK activé", 2)
+                    end)
+                    notify("Anti-AFK", "Système anti-AFK démarré", 2)
+                end
+            else
+                if connection then
+                    connection:Disconnect()
+                    connection = nil
+                    notify("Anti-AFK", "Système anti-AFK désactivé", 2)
+                end
             end
-        else
-            if connection then
-                connection:Disconnect()
-                connection = nil
-                notify("Anti-AFK", "Système anti-AFK désactivé", 2)
-            end
-        end
+        end)
     end
 end
 
--- Fonction principale pour démarrer l'application avec Rayfield
+-- Fonction principale sécurisée
 local function startApplication()
     task.wait(1) -- Attendre que le jeu se charge correctement
     
     notify("PS99 Mobile Pro", "Chargement de l'interface...", 2)
     
-    -- Charger Rayfield
-    local Rayfield = nil
-    local success, errorMsg = pcall(function()
-        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
-        return true
-    end)
-    
-    if not success then
-        notify("Erreur", "Échec du chargement de Rayfield. Nouvelle tentative...", 2)
+    -- Fonction sécurisée pour charger Rayfield
+    local function loadRayfield()
+        local Rayfield
         
-        -- Tentative de chargement alternatif
-        success, errorMsg = pcall(function()
-            Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
-            return true
+        local success = pcall(function()
+            Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
         end)
         
-        if not success then
-            notify("Erreur critique", "Impossible de charger Rayfield", 5)
-            return
+        if not success or not Rayfield then
+            success = pcall(function()
+                Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+            end)
         end
+        
+        return Rayfield
     end
     
-    -- Attendre pour s'assurer que Rayfield est bien chargé
-    task.wait(1)
+    -- Charger Rayfield
+    local Rayfield = loadRayfield()
     
-    -- Créer la fenêtre principale AVEC le système de clé intégré à Rayfield
+    -- Vérifier si Rayfield a été chargé correctement
+    if not Rayfield then
+        notify("Erreur critique", "Impossible de charger Rayfield. Réessayez plus tard.", 5)
+        return
+    end
+    
+    -- Créer la fenêtre principale avec le système de clé intégré
     local Window = Rayfield:CreateWindow({
         Name = "PS99 Mobile Pro",
         LoadingTitle = "PS99 Mobile Pro",
@@ -111,7 +128,7 @@ local function startApplication()
             FolderName = "PS99MobilePro",
             FileName = "Config"
         },
-        KeySystem = true, -- Utiliser le système de clé intégré à Rayfield
+        KeySystem = true,
         KeySettings = {
             Title = "PS99 Mobile Pro - Authentification",
             Subtitle = "Entrez votre clé d'activation",
@@ -120,13 +137,14 @@ local function startApplication()
             SaveKey = true,
             GrabKeyFromSite = false,
             Key = correctKey
-        },
-        Discord = {
-            Enabled = false
         }
     })
     
-    -- Une fois authentifié, Rayfield chargera automatiquement l'interface
+    -- S'assurer que la fenêtre est créée avant de continuer
+    if not Window then
+        notify("Erreur", "Erreur lors de la création de la fenêtre", 3)
+        return
+    end
     
     -- Onglet Principal
     local MainTab = Window:CreateTab("Principal", 4483345998)
@@ -142,7 +160,7 @@ local function startApplication()
         Flag = "AntiAfkToggle",
         Callback = function(Value)
             antiAfkEnabled = Value
-            toggleAfk(antiAfkEnabled)
+            toggleAfk(Value)
         end
     })
     
@@ -223,9 +241,10 @@ local function startApplication()
         CurrentValue = 1000,
         Flag = "RenderDistance",
         Callback = function(Value)
-            -- Application de la distance
-            game:GetService("Lighting").GlobalShadows = Value > 500
-            settings().Rendering.ViewingDistance = Value
+            -- Application de la distance avec vérification
+            pcall(function()
+                settings().Rendering.ViewingDistance = Value
+            end)
         end,
     })
     
@@ -240,10 +259,10 @@ local function startApplication()
     notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
 end
 
--- Exécuter l'application avec gestion d'erreurs
+-- Exécuter l'application avec gestion d'erreurs robuste
 local success, errorMsg = pcall(startApplication)
 
 if not success then
-    notify("Erreur critique", "Impossible de démarrer l'application: " .. tostring(errorMsg), 5)
-    warn("Erreur critique: " .. tostring(errorMsg))
+    warn("Erreur lors du démarrage: " .. tostring(errorMsg))
+    notify("Erreur critique", "Impossible de démarrer: Vérifiez la console (F9)", 5)
 end
