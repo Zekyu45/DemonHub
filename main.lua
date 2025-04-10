@@ -1,9 +1,6 @@
 -- PS99 Mobile Pro - Version Rayfield UI
 -- Système d'authentification par clé optimisé pour mobile
 
--- Importer le module UI
-local ui = require("ui")
-
 -- Variables principales
 local correctKey = "zekyu"  -- La clé reste "zekyu"
 local showNotifications = true
@@ -13,6 +10,27 @@ local antiAfkEnabled = false
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local TeleportService = game:GetService("TeleportService")
+
+-- Charger le module UI depuis GitHub
+local ui
+local loadSuccess, loadErr = pcall(function()
+    local uiUrl = "https://raw.githubusercontent.com/Zekyu45/DemonHub/main/ui.lua"
+    ui = loadstring(game:HttpGet(uiUrl))()
+    return ui
+end)
+
+if not loadSuccess then
+    warn("Échec du chargement du module UI: " .. tostring(loadErr))
+    -- Créer une notification d'erreur basique sans utiliser le module UI
+    pcall(function()
+        game:GetService("StarterGui"):SetCore("SendNotification", {
+            Title = "Erreur critique",
+            Text = "Impossible de charger l'interface utilisateur",
+            Duration = 5
+        })
+    end)
+    return -- Arrêter l'exécution du script
+end
 
 -- Message de démarrage initial
 ui.notify("PS99 Mobile Pro", "Démarrage de l'application...", 3)
@@ -52,7 +70,11 @@ end
 -- Fonction à exécuter après l'authentification
 local function onAuthSuccess()
     local toggleAfk = setupAntiAfk()
+    
+    -- Créer l'interface principale et passer les callbacks nécessaires
     ui.createCustomUI(toggleAfk, showNotifications, antiAfkEnabled)
+    
+    -- Vous pouvez ajouter d'autres fonctionnalités post-authentification ici
 end
 
 -- Lancer le système de clé avec gestion d'erreurs
