@@ -43,33 +43,44 @@ local function clearPreviousUI(name)
     end
 end
 
--- Nettoyer les anciennes instances d'UI avant de commencer
-clearPreviousUI("Rayfield")
-
--- Charger Rayfield - CORRECTION : Utilisation de l'URL raw directement
+-- Variables globales pour Rayfield
 local Rayfield = nil
 local RayfieldLoaded = false
+local mainWindow = nil  -- Pour stocker la référence à la fenêtre principale
 
-local success, errorMsg = pcall(function()
-    -- URL raw directement pour éviter les erreurs de chargement
-    Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
-    RayfieldLoaded = true
-end)
-
-if not success or not RayfieldLoaded then
-    backupNotify("Erreur", "Échec du chargement de Rayfield. Tentative alternative...", 3)
+-- Fonction pour charger Rayfield
+local function loadRayfield()
+    -- Nettoyer les anciennes instances d'UI avant de commencer
+    clearPreviousUI("Rayfield")
     
-    -- Tentative de chargement alternatif
-    success, errorMsg = pcall(function()
-        -- URL alternative au cas où
-        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
-        RayfieldLoaded = true
+    local success, result = pcall(function()
+        return loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
     end)
     
-    if not success or not RayfieldLoaded then
-        backupNotify("Erreur critique", "Impossible de charger Rayfield. " .. tostring(errorMsg), 5)
-        return
+    if success then
+        Rayfield = result
+        RayfieldLoaded = true
+        return true
+    else
+        -- Tentative avec une URL alternative
+        success, result = pcall(function()
+            return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+        end)
+        
+        if success then
+            Rayfield = result
+            RayfieldLoaded = true
+            return true
+        else
+            backupNotify("Erreur", "Impossible de charger Rayfield", 3)
+            return false
+        end
     end
+end
+
+-- Charger Rayfield au démarrage
+if not loadRayfield() then
+    backupNotify("Erreur critique", "Échec du chargement de l'interface", 5)
 end
 
 -- Fonction notification optimisée
@@ -121,16 +132,16 @@ end
 
 -- Fonction pour créer l'interface principale
 local function createMainUI()
-    if not Rayfield then
-        backupNotify("Erreur", "Interface Rayfield non disponible", 3)
-        return
+    -- Vérifier que Rayfield est bien chargé
+    if not RayfieldLoaded then
+        if not loadRayfield() then
+            backupNotify("Erreur", "Interface Rayfield non disponible", 3)
+            return
+        end
     end
     
-    -- CORRECTION : Nettoyer les instances précédentes avant de créer la nouvelle
-    clearPreviousUI("Rayfield")
-    
     -- Créer la fenêtre principale
-    local Window = Rayfield:CreateWindow({
+    mainWindow = Rayfield:CreateWindow({
         Name = "PS99 Mobile Pro",
         LoadingTitle = "PS99 Mobile Pro",
         LoadingSubtitle = "par zekyu",
@@ -146,7 +157,7 @@ local function createMainUI()
     })
     
     -- Onglet Principal
-    local MainTab = Window:CreateTab("Principal", 4483345998)
+    local MainTab = mainWindow:CreateTab("Principal", 4483345998)
     
     -- Section Anti-AFK
     MainTab:CreateSection("Système Anti-AFK")
@@ -202,7 +213,7 @@ local function createMainUI()
     })
     
     -- Onglet Paramètres
-    local SettingsTab = Window:CreateTab("Paramètres", 4483345998)
+    local SettingsTab = mainWindow:CreateTab("Paramètres", 4483345998)
     
     -- Section Informations
     SettingsTab:CreateSection("Informations")
@@ -248,14 +259,20 @@ local function createMainUI()
     SettingsTab:CreateButton({
         Name = "Fermer l'interface",
         Callback = function()
-            Rayfield:Destroy()
+            if mainWindow and mainWindow.Destroy then
+                mainWindow:Destroy()
+                mainWindow = nil
+            else
+                Rayfield:Destroy()
+            end
         end
     })
     
     notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
+    return mainWindow
 end
 
--- CORRECTION : Nouvelle fonction de vérification de clé simplifiée
+-- Interface de vérification de clé personnalisée
 local function createKeyUI()
     -- Créer une interface ScreenGui pour la vérification de clé
     local keyUI = Instance.new("ScreenGui")
@@ -284,12 +301,10 @@ local function createKeyUI()
     mainFrame.Draggable = true
     mainFrame.Parent = keyUI
     
-    -- Arrondir les coins
     local UICorner = Instance.new("UICorner")
     UICorner.CornerRadius = UDim.new(0, 10)
     UICorner.Parent = mainFrame
     
-    -- Titre
     local titleBar = Instance.new("Frame")
     titleBar.Name = "TitleBar"
     titleBar.Size = UDim2.new(1, 0, 0, 40)
@@ -313,7 +328,6 @@ local function createKeyUI()
     titleText.TextXAlignment = Enum.TextXAlignment.Left
     titleText.Parent = titleBar
     
-    -- Texte d'instruction
     local instructionText = Instance.new("TextLabel")
     instructionText.Name = "Instruction"
     instructionText.Size = UDim2.new(1, -20, 0, 30)
@@ -326,7 +340,6 @@ local function createKeyUI()
     instructionText.TextXAlignment = Enum.TextXAlignment.Left
     instructionText.Parent = mainFrame
     
-    -- Champ de texte pour la clé
     local keyInput = Instance.new("TextBox")
     keyInput.Name = "KeyInput"
     keyInput.Size = UDim2.new(1, -20, 0, 40)
@@ -344,7 +357,6 @@ local function createKeyUI()
     keyInputCorner.CornerRadius = UDim.new(0, 8)
     keyInputCorner.Parent = keyInput
     
-    -- Bouton de validation
     local validateButton = Instance.new("TextButton")
     validateButton.Name = "ValidateButton"
     validateButton.Size = UDim2.new(1, -20, 0, 40)
@@ -362,7 +374,6 @@ local function createKeyUI()
     
     -- Fonction pour valider la clé
     validateButton.MouseButton1Click:Connect(function()
-        -- Nettoyer les espaces et vérifier en ignorant la casse
         local enteredKey = keyInput.Text:gsub("%s+", ""):lower() 
         local correctKeyLower = correctKey:lower()
         
@@ -372,23 +383,30 @@ local function createKeyUI()
             validateButton.Text = "CLÉ VALIDE!"
             
             backupNotify("Succès!", "Authentification réussie!", 2)
+            
+            -- Important: On attend suffisamment avant de détruire l'UI de clé
             task.wait(1)
             keyUI:Destroy() -- Détruire l'UI de clé
             
-            -- CORRECTION : Créer l'interface principale dans un nouveau thread
+            -- Correction: Nettoyer toute instance Rayfield puis charger/recharger Rayfield dans un thread séparé
             task.spawn(function()
-                -- S'assurer que Rayfield est bien chargé avant de créer l'interface
-                if not RayfieldLoaded then
-                    -- Tenter de recharger Rayfield si nécessaire
-                    pcall(function()
-                        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
-                        RayfieldLoaded = true
-                    end)
+                -- Nettoyer l'ancien Rayfield s'il existe
+                if Rayfield and Rayfield.Destroy then
+                    pcall(function() Rayfield:Destroy() end)
                 end
                 
-                -- Attendre un peu pour être sûr que tout est bien chargé
+                -- Recharger complètement Rayfield
+                loadRayfield()
+                
+                -- S'assurer que le chargement est fini
                 task.wait(0.5)
-                createMainUI()
+                
+                -- Créer l'UI principale et stocker la référence
+                if RayfieldLoaded then
+                    mainWindow = createMainUI()
+                else
+                    backupNotify("Erreur", "Échec du chargement de Rayfield après validation", 3)
+                end
             end)
         else
             -- Animation d'échec
@@ -416,15 +434,12 @@ local function createKeyUI()
     return keyUI
 end
 
--- CORRECTION : Fonction améliorée pour démarrer l'application
+-- Fonction principale pour démarrer l'application
 local function startApplication()
     task.wait(1) -- Attendre que le jeu se charge correctement
     
-    -- CORRECTION : Simplifié le système de vérification de clé
-    -- Créer directement l'interface de vérification de clé personnalisée
+    -- Créer l'interface de vérification de clé
     local keyUI = createKeyUI()
-    
-    -- Ajouter un message d'information
     backupNotify("PS99 Mobile Pro", "Veuillez entrer votre clé pour continuer", 3)
 end
 
