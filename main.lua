@@ -1,4 +1,4 @@
--- PS99 Mobile Pro - Version Orion UI
+-- PS99 Mobile Pro - Version Rayfield UI
 -- Système d'authentification par clé optimisé pour mobile
 
 -- Variables principales
@@ -10,9 +10,8 @@ local antiAfkEnabled = false
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
 local TeleportService = game:GetService("TeleportService")
-local HttpService = game:GetService("HttpService")
 
--- Fonction pour créer une notification sécurisée
+-- Fonction pour créer une notification
 local function notify(title, text, duration)
     title = title or "PS99 Mobile Pro"
     text = text or "Action effectuée"
@@ -31,11 +30,11 @@ end
 -- Message de démarrage initial
 notify("PS99 Mobile Pro", "Démarrage de l'application...", 3)
 
--- Nettoyer les anciennes instances d'UI pour éviter les conflits
+-- Nettoyer les anciennes instances d'UI
 local function clearPreviousUI()
     pcall(function()
         for _, gui in pairs(game:GetService("CoreGui"):GetChildren()) do
-            if gui.Name == "OrionLib" or gui.Name == "PS99MobilePro" then
+            if gui.Name == "Rayfield" or gui.Name == "PS99MobilePro" then
                 gui:Destroy()
             end
         end
@@ -43,7 +42,7 @@ local function clearPreviousUI()
     
     pcall(function()
         for _, gui in pairs(LocalPlayer.PlayerGui:GetChildren()) do
-            if gui.Name == "OrionLib" or gui.Name == "PS99MobilePro" then
+            if gui.Name == "Rayfield" or gui.Name == "PS99MobilePro" then
                 gui:Destroy()
             end
         end
@@ -52,7 +51,7 @@ end
 
 clearPreviousUI()
 
--- Fonction Anti-AFK sécurisée
+-- Fonction Anti-AFK
 local function setupAntiAfk()
     local connection
     local VirtualUser = game:GetService("VirtualUser")
@@ -81,108 +80,41 @@ local function setupAntiAfk()
     end
 end
 
--- FIX 1: Utiliser un miroir alternatif et ajouter un système de récupération pour Orion
-local OrionLib = nil
+-- Charger la bibliothèque Rayfield
+local Rayfield = nil
 
-local function loadOrionLibrary()
-    -- Méthode 1: URL principale
+local function loadRayfieldLibrary()
     local success, result = pcall(function()
-        return loadstring(game:HttpGet("https://raw.githubusercontent.com/shlexware/Orion/main/source"))()
+        return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
     end)
     
-    -- Si la première méthode échoue, essayer une URL alternative
     if not success then
         notify("Info", "Tentative avec URL alternative...", 2)
         
-        -- Méthode 2: URL alternative (exemple)
         success, result = pcall(function()
-            return loadstring(game:HttpGet("https://raw.githubusercontent.com/richie0866/Orion/main/source.lua"))()
-        end)
-    end
-    
-    -- Si les deux méthodes échouent, essayer d'utiliser un contenu préchargé
-    if not success then
-        notify("Info", "Chargement de la version locale...", 2)
-        
-        -- Méthode 3: Orion Library intégrée (version simplifiée)
-        -- FIX 2: Version minimale de secours en cas d'échec total
-        success, result = pcall(function()
-            -- Cette version minimale d'Orion permettra au moins d'afficher une interface basique
-            local MinimalOrion = {}
-            
-            function MinimalOrion:MakeWindow(config)
-                local window = {}
-                
-                function window:MakeTab(config)
-                    local tab = {}
-                    
-                    function tab:AddSection(config)
-                        return true
-                    end
-                    
-                    function tab:AddParagraph(title, content)
-                        print("[MinimalOrion] Paragraph: " .. title .. " - " .. content)
-                        return true
-                    end
-                    
-                    function tab:AddButton(config)
-                        return true
-                    end
-                    
-                    function tab:AddToggle(config)
-                        return true
-                    end
-                    
-                    function tab:AddTextbox(config)
-                        return true
-                    end
-                    
-                    function tab:AddDropdown(config)
-                        return true
-                    end
-                    
-                    function tab:AddSlider(config)
-                        return true
-                    end
-                    
-                    return tab
-                end
-                
-                return window
-            end
-            
-            function MinimalOrion:MakeNotification(config)
-                notify(config.Name, config.Content, config.Time or 3)
-                return true
-            end
-            
-            function MinimalOrion:Destroy()
-                return true
-            end
-            
-            return MinimalOrion
+            return loadstring(game:HttpGet('https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua'))()
         end)
     end
     
     if not success then
-        notify("Erreur", "Échec du chargement de l'interface Orion", 3)
-        warn("Échec du chargement d'Orion: " .. tostring(result))
+        notify("Erreur", "Échec du chargement de l'interface Rayfield", 3)
+        warn("Échec du chargement de Rayfield: " .. tostring(result))
         return nil
     end
     
     return result
 end
 
--- FIX 3: Utiliser une approche progressive pour charger l'interface
+-- Essayer de charger l'interface
 local function tryLoadInterface()
     -- Afficher une notification de chargement
     notify("Chargement", "Tentative de connexion...", 3)
     
     -- Essayer 3 fois avec délai entre chaque tentative
     for attempt = 1, 3 do
-        OrionLib = loadOrionLibrary()
+        Rayfield = loadRayfieldLibrary()
         
-        if OrionLib then
+        if Rayfield then
             notify("Succès", "Interface chargée (tentative " .. attempt .. ")", 2)
             return true
         end
@@ -201,7 +133,7 @@ local interfaceLoaded = tryLoadInterface()
 if not interfaceLoaded then
     notify("Erreur critique", "Impossible de charger l'interface utilisateur", 5)
     
-    -- FIX 4: Interface de secours minimale pour débloquer l'utilisateur
+    -- Interface de secours minimale
     pcall(function()
         local backupFrame = Instance.new("ScreenGui")
         backupFrame.Name = "PS99MobileProBackup"
@@ -229,20 +161,10 @@ if not interfaceLoaded then
         msg.TextColor3 = Color3.fromRGB(255, 255, 255)
         msg.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
         msg.Font = Enum.Font.SourceSans
-        msg.Text = "Impossible de charger l'interface Orion.\nErreur détectée: Problème de connexion au serveur."
+        msg.Text = "Impossible de charger l'interface Rayfield.\nErreur détectée: Problème de connexion au serveur."
         msg.TextSize = 16
         msg.TextWrapped = true
         msg.Parent = mainFrame
-        
-        local retryBtn = Instance.new("TextButton")
-        retryBtn.Size = UDim2.new(0.4, 0, 0.1, 0)
-        retryBtn.Position = UDim2.new(0.3, 0, 0.5, 0)
-        retryBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
-        retryBtn.BackgroundColor3 = Color3.fromRGB(70, 130, 180)
-        retryBtn.Font = Enum.Font.SourceSansBold
-        retryBtn.Text = "Réessayer"
-        retryBtn.TextSize = 18
-        retryBtn.Parent = mainFrame
         
         local closeBtn = Instance.new("TextButton")
         closeBtn.Size = UDim2.new(0.4, 0, 0.1, 0)
@@ -255,17 +177,6 @@ if not interfaceLoaded then
         closeBtn.Parent = mainFrame
         
         -- Ajouter les fonctionnalités aux boutons
-        retryBtn.MouseButton1Click:Connect(function()
-            backupFrame:Destroy()
-            
-            -- Relancer le processus
-            notify("Redémarrage", "Tentative de reconnexion...", 3)
-            wait(1)
-            
-            -- Réutiliser le script actuel
-            loadstring(game:HttpGet("https://pastebin.com/raw/YourScriptBackupURL"))()
-        end)
-        
         closeBtn.MouseButton1Click:Connect(function()
             backupFrame:Destroy()
             notify("Fermeture", "Application fermée", 2)
@@ -285,325 +196,85 @@ if not interfaceLoaded then
     return
 end
 
--- Système de clé personnalisé avec Orion
+-- Système de clé avec Rayfield
 local function startKeySystem()
-    local keyWindow = OrionLib:MakeWindow({
+    local Window = Rayfield:CreateWindow({
         Name = "PS99 Mobile Pro - Authentification",
-        HidePremium = true,
-        SaveConfig = false,
-        IntroEnabled = true,
-        IntroText = "PS99 Mobile Pro",
-        IntroIcon = "rbxassetid://4483345998",
-        Icon = "rbxassetid://4483345998",
-        IconColor = Color3.fromRGB(70, 130, 180),
-        CloseCallback = function()
-            -- Action lorsque la fenêtre est fermée
-        end
+        LoadingTitle = "PS99 Mobile Pro",
+        LoadingSubtitle = "par zekyu",
+        ConfigurationSaving = {
+            Enabled = false,
+            FolderName = "PS99MobilePro",
+            FileName = "Config"
+        },
+        KeySystem = true,
+        KeySettings = {
+            Title = "PS99 Mobile Pro",
+            Subtitle = "Système d'authentification",
+            Note = "La clé est fournie par zekyu",
+            FileName = "PS99Key",
+            SaveKey = false,
+            GrabKeyFromSite = false,
+            Key = correctKey
+        }
     })
     
-    local keyTab = keyWindow:MakeTab({
-        Name = "Authentification",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
-    })
-    
-    keyTab:AddParagraph("Information", "Veuillez entrer votre clé d'activation pour continuer")
-    
-    local keyInput = ""
-    
-    keyTab:AddTextbox({
-        Name = "Clé d'activation",
-        Default = "",
-        TextDisappear = true,
-        Callback = function(Value)
-            keyInput = Value
-        end
-    })
-    
-    -- FIX 5: Ajouter un bouton pour récupérer la clé
-    keyTab:AddButton({
-        Name = "Récupérer la clé (Debug)",
-        Callback = function()
-            keyInput = correctKey
-            OrionLib:MakeNotification({
-                Name = "Debug",
-                Content = "Clé récupérée: " .. correctKey,
-                Image = "rbxassetid://4483345998",
-                Time = 5
-            })
-        end
-    })
-    
-    keyTab:AddButton({
-        Name = "Valider la clé",
-        Callback = function()
-            -- Vérifier la clé
-            local enteredKey = keyInput:gsub("%s+", ""):lower()
-            
-            if enteredKey == correctKey:lower() then
-                OrionLib:MakeNotification({
-                    Name = "Succès!",
-                    Content = "Clé validée avec succès",
-                    Image = "rbxassetid://4483345998",
-                    Time = 3
-                })
-                
-                task.wait(1)
-                OrionLib:Destroy()
-                task.wait(0.5)
-                startMainUI()
-            else
-                OrionLib:MakeNotification({
-                    Name = "Erreur!",
-                    Content = "Clé d'activation incorrecte",
-                    Image = "rbxassetid://4483345998",
-                    Time = 3
-                })
-            end
-        end
-    })
-    
-    keyTab:AddParagraph("Note", "La clé est fournie par zekyu")
+    -- Après validation de la clé, l'interface principale se lancera automatiquement
+    startMainUI(Window)
 end
 
 -- Interface principale après validation de la clé
-function startMainUI()
-    local mainWindow = OrionLib:MakeWindow({
-        Name = "PS99 Mobile Pro v1.1",
-        HidePremium = true,
-        SaveConfig = true,
-        ConfigFolder = "PS99MobilePro",
-        IntroEnabled = true,
-        IntroText = "PS99 Mobile Pro",
-        IntroIcon = "rbxassetid://4483345998",
-        Icon = "rbxassetid://4483345998",
-        IconColor = Color3.fromRGB(70, 130, 180)
-    })
-    
+function startMainUI(Window)
     -- Onglet Principal
-    local mainTab = mainWindow:MakeTab({
-        Name = "Principal",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
-    })
+    local MainTab = Window:CreateTab("Principal", 4483345998)
     
     -- Section Anti-AFK
-    mainTab:AddSection({
-        Name = "Système Anti-AFK"
-    })
+    local AfkSection = MainTab:CreateSection("Système Anti-AFK")
     
     local toggleAfk = setupAntiAfk()
     
-    mainTab:AddToggle({
+    local AfkToggle = MainTab:CreateToggle({
         Name = "Anti-AFK",
-        Default = antiAfkEnabled,
+        CurrentValue = antiAfkEnabled,
         Flag = "AntiAfkEnabled",
-        Save = true,
         Callback = function(Value)
             antiAfkEnabled = Value
             toggleAfk(Value)
-        end
+        end,
     })
     
     -- Section Notifications
-    mainTab:AddSection({
-        Name = "Configuration"
-    })
+    local NotifSection = MainTab:CreateSection("Configuration")
     
-    mainTab:AddToggle({
+    local NotifToggle = MainTab:CreateToggle({
         Name = "Notifications",
-        Default = showNotifications,
+        CurrentValue = showNotifications,
         Flag = "ShowNotifications",
-        Save = true,
         Callback = function(Value)
             showNotifications = Value
             if showNotifications then
                 notify("Notifications", "Notifications activées", 2)
             end
-        end
-    })
-    
-    -- Section fonctionnalités de jeu
-    mainTab:AddSection({
-        Name = "Fonctionnalités de jeu"
-    })
-    
-    mainTab:AddButton({
-        Name = "Collecter tous les œufs",
-        Callback = function()
-            OrionLib:MakeNotification({
-                Name = "PS99 Mobile Pro",
-                Content = "Collecte des œufs en cours...",
-                Image = "rbxassetid://4483345998",
-                Time = 3
-            })
-            
-            -- Simulation d'action
-            task.wait(1)
-            
-            OrionLib:MakeNotification({
-                Name = "PS99 Mobile Pro",
-                Content = "Tous les œufs ont été collectés!",
-                Image = "rbxassetid://4483345998",
-                Time = 2
-            })
-        end
-    })
-    
-    mainTab:AddButton({
-        Name = "Ouvrir Menu Téléportation",
-        Callback = function()
-            OrionLib:MakeNotification({
-                Name = "PS99 Mobile Pro",
-                Content = "Ouverture du menu téléportation...",
-                Image = "rbxassetid://4483345998",
-                Time = 2
-            })
-            
-            -- Simulation d'action
-            task.wait(0.5)
-            
-            -- Liste de téléportation fictive
-            local teleportLocations = {
-                "Zone de départ",
-                "Zone trading",
-                "Zone mystique",
-                "Terrain d'entraînement",
-                "Arène de combat"
-            }
-            
-            -- Créer un nouveau tab de téléportation à la demande
-            local tpTab = mainWindow:MakeTab({
-                Name = "Téléportation",
-                Icon = "rbxassetid://4483345998",
-                PremiumOnly = false
-            })
-            
-            for _, location in pairs(teleportLocations) do
-                tpTab:AddButton({
-                    Name = "Téléporter: " .. location,
-                    Callback = function()
-                        OrionLib:MakeNotification({
-                            Name = "Téléportation",
-                            Content = "Téléportation vers: " .. location,
-                            Image = "rbxassetid://4483345998",
-                            Time = 2
-                        })
-                    end
-                })
-            end
-        end
-    })
-    
-    -- Onglet Paramètres
-    local settingsTab = mainWindow:MakeTab({
-        Name = "Paramètres",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
-    })
-    
-    -- Section Informations
-    settingsTab:AddSection({
-        Name = "Informations"
-    })
-    
-    settingsTab:AddParagraph("Version", "PS99 Mobile Pro v1.1")
-    settingsTab:AddParagraph("Développeur", "Développé par zekyu")
-    settingsTab:AddParagraph("Optimisation", "Optimisé pour appareils mobiles")
-    
-    -- Section Options avancées
-    settingsTab:AddSection({
-        Name = "Options graphiques"
-    })
-    
-    settingsTab:AddDropdown({
-        Name = "Qualité graphique",
-        Default = "Moyenne",
-        Options = {"Basse", "Moyenne", "Haute"},
-        Flag = "GraphicsQuality",
-        Save = true,
-        Callback = function(Option)
-            OrionLib:MakeNotification({
-                Name = "Paramètres",
-                Content = "Qualité graphique définie sur: " .. Option,
-                Image = "rbxassetid://4483345998",
-                Time = 2
-            })
-            
-            -- Application du paramètre
-            pcall(function()
-                if Option == "Basse" then
-                    settings().Rendering.QualityLevel = 1
-                elseif Option == "Moyenne" then
-                    settings().Rendering.QualityLevel = 4
-                elseif Option == "Haute" then 
-                    settings().Rendering.QualityLevel = 8
-                end
-            end)
-        end
-    })
-    
-    settingsTab:AddSlider({
-        Name = "Distance de rendu",
-        Min = 50,
-        Max = 2000,
-        Default = 1000,
-        Color = Color3.fromRGB(70, 130, 180),
-        Increment = 50,
-        Flag = "RenderDistance",
-        Save = true,
-        ValueName = "unités",
-        Callback = function(Value)
-            -- Application de la distance
-            pcall(function()
-                settings().Rendering.ViewingDistance = Value
-            end)
-        end
+        end,
     })
     
     -- Onglet Aide
-    local helpTab = mainWindow:MakeTab({
-        Name = "Aide",
-        Icon = "rbxassetid://4483345998",
-        PremiumOnly = false
+    local HelpTab = Window:CreateTab("Aide", 4483345998)
+    
+    HelpTab:CreateParagraph({
+        Title = "Aide",
+        Content = "Si vous rencontrez des problèmes, veuillez contacter zekyu."
     })
     
-    helpTab:AddParagraph("Aide", "Si vous rencontrez des problèmes, veuillez contacter zekyu.")
-    
-    helpTab:AddButton({
-        Name = "Redémarrer l'application",
-        Callback = function()
-            OrionLib:MakeNotification({
-                Name = "PS99 Mobile Pro",
-                Content = "Redémarrage de l'application...",
-                Image = "rbxassetid://4483345998",
-                Time = 3
-            })
-            
-            task.wait(1)
-            OrionLib:Destroy()
-            task.wait(0.5)
-            
-            -- Redémarrer l'application
-            loadOrionLibrary()
-            startKeySystem()
-        end
-    })
-    
-    helpTab:AddButton({
+    HelpTab:CreateButton({
         Name = "Fermer l'application",
         Callback = function()
-            OrionLib:Destroy()
-        end
+            Rayfield:Destroy()
+        end,
     })
     
     -- Notification finale
-    OrionLib:MakeNotification({
-        Name = "PS99 Mobile Pro",
-        Content = "Interface chargée avec succès!",
-        Image = "rbxassetid://4483345998",
-        Time = 3
-    })
+    notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
 end
 
 -- Lancer le système de clé avec meilleure gestion d'erreurs
@@ -612,13 +283,4 @@ local success, err = pcall(startKeySystem)
 if not success then
     warn("Erreur lors du démarrage: " .. tostring(err))
     notify("Erreur critique", "Impossible de démarrer l'application", 5)
-    
-    -- FIX 6: Tentative de récupération supplémentaire
-    pcall(function()
-        wait(2)
-        notify("Récupération", "Tentative de démarrage direct...", 3)
-        wait(1)
-        pcall(startMainUI)
-    end)
 end
-    
