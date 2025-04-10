@@ -1,5 +1,4 @@
 -- PS99 Mobile Pro - Système d'authentification par clé optimisé pour mobile
--- Version utilisant le Rayfield depuis https://github.com/SiriusSoftwareLtd/Rayfield/blob/main/source.lua
 
 -- Variables principales
 local correctKey = "zekyu"  -- La clé est "zekyu"
@@ -9,11 +8,10 @@ local antiAfkEnabled = false
 -- Services
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer or Players.PlayerAdded:Wait()
-local HttpService = game:GetService("HttpService")
 local CoreGui = game:GetService("CoreGui")
 
--- Fonction pour créer une simple notification de secours
-local function backupNotify(title, text, duration)
+-- Fonction pour créer une notification
+local function notify(title, text, duration)
     local StarterGui = game:GetService("StarterGui")
     pcall(function()
         StarterGui:SetCore("SendNotification", {
@@ -27,9 +25,9 @@ local function backupNotify(title, text, duration)
 end
 
 -- Message de démarrage initial
-backupNotify("PS99 Mobile Pro", "Démarrage de l'application...", 3)
+notify("PS99 Mobile Pro", "Démarrage de l'application...", 3)
 
--- Vérifier si une instance avec le même nom existe déjà et la supprimer
+-- Nettoyer les anciennes instances d'UI
 local function clearPreviousUI(name)
     for _, gui in pairs(CoreGui:GetChildren()) do
         if gui.Name == name then
@@ -43,67 +41,9 @@ local function clearPreviousUI(name)
     end
 end
 
--- Variables globales pour Rayfield
-local Rayfield = nil
-local RayfieldLoaded = false
-local mainWindow = nil  -- Pour stocker la référence à la fenêtre principale
-
--- Fonction pour charger Rayfield
-local function loadRayfield()
-    -- Nettoyer les anciennes instances d'UI avant de commencer
-    clearPreviousUI("Rayfield")
-    
-    local success, result = pcall(function()
-        return loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
-    end)
-    
-    if success then
-        Rayfield = result
-        RayfieldLoaded = true
-        return true
-    else
-        -- Tentative avec une URL alternative
-        success, result = pcall(function()
-            return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
-        end)
-        
-        if success then
-            Rayfield = result
-            RayfieldLoaded = true
-            return true
-        else
-            backupNotify("Erreur", "Impossible de charger Rayfield", 3)
-            return false
-        end
-    end
-end
-
--- Charger Rayfield au démarrage
-if not loadRayfield() then
-    backupNotify("Erreur critique", "Échec du chargement de l'interface", 5)
-end
-
--- Fonction notification optimisée
-local function notify(title, text, duration)
-    if not showNotifications then return end
-    
-    if Rayfield and Rayfield.Notify then
-        Rayfield:Notify({
-            Title = title,
-            Content = text,
-            Duration = duration or 2,
-            Image = 4483345998,
-            Actions = {
-                Ignore = {
-                    Name = "OK",
-                    Callback = function() end
-                }
-            }
-        })
-    else
-        backupNotify(title, text, duration)
-    end
-end
+-- Nettoyer les interfaces précédentes au démarrage
+clearPreviousUI("Rayfield")
+clearPreviousUI("PS99KeySystem")
 
 -- Fonction Anti-AFK
 local function setupAntiAfk()
@@ -130,151 +70,8 @@ local function setupAntiAfk()
     end
 end
 
--- Fonction pour créer l'interface principale
-local function createMainUI()
-    -- Vérifier que Rayfield est bien chargé
-    if not RayfieldLoaded then
-        if not loadRayfield() then
-            backupNotify("Erreur", "Interface Rayfield non disponible", 3)
-            return
-        end
-    end
-    
-    -- Créer la fenêtre principale
-    mainWindow = Rayfield:CreateWindow({
-        Name = "PS99 Mobile Pro",
-        LoadingTitle = "PS99 Mobile Pro",
-        LoadingSubtitle = "par zekyu",
-        ConfigurationSaving = {
-            Enabled = true,
-            FolderName = "PS99MobilePro",
-            FileName = "Config"
-        },
-        KeySystem = false, -- Nous avons déjà vérifié la clé
-        Discord = {
-            Enabled = false
-        }
-    })
-    
-    -- Onglet Principal
-    local MainTab = mainWindow:CreateTab("Principal", 4483345998)
-    
-    -- Section Anti-AFK
-    MainTab:CreateSection("Système Anti-AFK")
-    
-    local toggleAfk = setupAntiAfk()
-    
-    MainTab:CreateToggle({
-        Name = "Anti-AFK",
-        CurrentValue = antiAfkEnabled,
-        Flag = "AntiAfkToggle",
-        Callback = function(Value)
-            antiAfkEnabled = Value
-            toggleAfk(antiAfkEnabled)
-        end
-    })
-    
-    -- Section Notifications
-    MainTab:CreateSection("Configuration")
-    
-    MainTab:CreateToggle({
-        Name = "Notifications",
-        CurrentValue = showNotifications,
-        Flag = "NotificationsToggle",
-        Callback = function(Value)
-            showNotifications = Value
-            if showNotifications then
-                notify("Notifications", "Notifications activées", 2)
-            end
-        end
-    })
-    
-    -- Section fonctionnalités de jeu
-    MainTab:CreateSection("Fonctionnalités de jeu")
-    
-    MainTab:CreateButton({
-        Name = "Collecter tous les œufs",
-        Callback = function()
-            notify("PS99 Mobile Pro", "Collecte des œufs en cours...", 3)
-            -- Simulation d'action
-            task.wait(1)
-            notify("PS99 Mobile Pro", "Tous les œufs ont été collectés!", 2)
-        end
-    })
-    
-    MainTab:CreateButton({
-        Name = "Téléportation rapide",
-        Callback = function()
-            notify("PS99 Mobile Pro", "Menu de téléportation en préparation...", 2)
-            -- Simulation d'action
-            task.wait(0.5)
-            notify("PS99 Mobile Pro", "Téléportation non disponible dans cette version", 2)
-        end
-    })
-    
-    -- Onglet Paramètres
-    local SettingsTab = mainWindow:CreateTab("Paramètres", 4483345998)
-    
-    -- Section Informations
-    SettingsTab:CreateSection("Informations")
-    
-    SettingsTab:CreateLabel("PS99 Mobile Pro v1.1")
-    SettingsTab:CreateLabel("Développé par zekyu")
-    SettingsTab:CreateLabel("Optimisé pour appareils mobiles")
-    
-    -- Section Options avancées
-    SettingsTab:CreateSection("Options avancées")
-    
-    SettingsTab:CreateDropdown({
-        Name = "Qualité graphique",
-        Options = {"Basse", "Moyenne", "Haute"},
-        CurrentOption = "Moyenne",
-        Flag = "GraphicsQuality",
-        Callback = function(Option)
-            notify("Paramètres", "Qualité graphique définie sur: " .. Option, 2)
-            -- Application du paramètre
-            if Option == "Basse" then
-                settings().Rendering.QualityLevel = 1
-            elseif Option == "Moyenne" then
-                settings().Rendering.QualityLevel = 4
-            elseif Option == "Haute" then 
-                settings().Rendering.QualityLevel = 8
-            end
-        end
-    })
-    
-    SettingsTab:CreateSlider({
-        Name = "Distance de rendu",
-        Range = {50, 2000},
-        Increment = 50,
-        Suffix = "unités",
-        CurrentValue = 1000,
-        Flag = "RenderDistance",
-        Callback = function(Value)
-            -- Application de la distance
-            game.Workspace.Camera.CFrame = game.Workspace.Camera.CFrame
-        end,
-    })
-    
-    SettingsTab:CreateButton({
-        Name = "Fermer l'interface",
-        Callback = function()
-            if mainWindow and mainWindow.Destroy then
-                mainWindow:Destroy()
-                mainWindow = nil
-            else
-                Rayfield:Destroy()
-            end
-        end
-    })
-    
-    notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
-    return mainWindow
-end
-
 -- Interface de vérification de clé personnalisée
 local function createKeyUI()
-    -- Créer une interface ScreenGui pour la vérification de clé
     local keyUI = Instance.new("ScreenGui")
     keyUI.Name = "PS99KeySystem"
     keyUI.ResetOnSpawn = false
@@ -382,38 +179,20 @@ local function createKeyUI()
             validateButton.BackgroundColor3 = Color3.fromRGB(70, 180, 70)
             validateButton.Text = "CLÉ VALIDE!"
             
-            backupNotify("Succès!", "Authentification réussie!", 2)
+            notify("Succès!", "Authentification réussie!", 2)
             
-            -- Important: On attend suffisamment avant de détruire l'UI de clé
+            -- Détruire l'UI de clé après un court délai
             task.wait(1)
-            keyUI:Destroy() -- Détruire l'UI de clé
+            keyUI:Destroy()
             
-            -- Correction: Nettoyer toute instance Rayfield puis charger/recharger Rayfield dans un thread séparé
-            task.spawn(function()
-                -- Nettoyer l'ancien Rayfield s'il existe
-                if Rayfield and Rayfield.Destroy then
-                    pcall(function() Rayfield:Destroy() end)
-                end
-                
-                -- Recharger complètement Rayfield
-                loadRayfield()
-                
-                -- S'assurer que le chargement est fini
-                task.wait(0.5)
-                
-                -- Créer l'UI principale et stocker la référence
-                if RayfieldLoaded then
-                    mainWindow = createMainUI()
-                else
-                    backupNotify("Erreur", "Échec du chargement de Rayfield après validation", 3)
-                end
-            end)
+            -- Charger le Rayfield et l'interface principale
+            loadRayfieldAndCreateMainUI()
         else
             -- Animation d'échec
             validateButton.BackgroundColor3 = Color3.fromRGB(180, 70, 70)
             validateButton.Text = "CLÉ INVALIDE!"
             
-            backupNotify("Erreur", "Clé d'authentification incorrecte", 3)
+            notify("Erreur", "Clé d'authentification incorrecte", 3)
             
             -- Effet de secousse
             local originalPosition = mainFrame.Position
@@ -434,19 +213,180 @@ local function createKeyUI()
     return keyUI
 end
 
+-- Fonction pour charger Rayfield et créer l'interface principale
+function loadRayfieldAndCreateMainUI()
+    -- Nettoyer les anciennes instances
+    clearPreviousUI("Rayfield")
+    
+    -- SOLUTION UNIFIÉE: Charger Rayfield puis créer l'interface en une seule fonction
+    -- Cela garantit que la séquence d'exécution est correcte
+    
+    -- Notification de chargement
+    notify("PS99 Mobile Pro", "Chargement de l'interface...", 2)
+    
+    -- Charger Rayfield
+    local Rayfield = nil
+    local success, errorMsg = pcall(function()
+        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
+        return true
+    end)
+    
+    if not success then
+        notify("Erreur", "Échec du chargement de Rayfield. Nouvelle tentative...", 2)
+        
+        -- Tentative de chargement alternatif
+        success, errorMsg = pcall(function()
+            Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
+            return true
+        end)
+        
+        if not success then
+            notify("Erreur critique", "Impossible de charger Rayfield", 5)
+            return
+        end
+    end
+    
+    -- Attendre pour s'assurer que Rayfield est bien chargé
+    task.wait(1)
+    
+    -- Créer la fenêtre principale
+    local Window = Rayfield:CreateWindow({
+        Name = "PS99 Mobile Pro",
+        LoadingTitle = "PS99 Mobile Pro",
+        LoadingSubtitle = "par zekyu",
+        ConfigurationSaving = {
+            Enabled = true,
+            FolderName = "PS99MobilePro",
+            FileName = "Config"
+        },
+        KeySystem = false, -- Nous avons déjà vérifié la clé
+        Discord = {
+            Enabled = false
+        }
+    })
+    
+    -- Onglet Principal
+    local MainTab = Window:CreateTab("Principal", 4483345998)
+    
+    -- Section Anti-AFK
+    MainTab:CreateSection("Système Anti-AFK")
+    
+    local toggleAfk = setupAntiAfk()
+    
+    MainTab:CreateToggle({
+        Name = "Anti-AFK",
+        CurrentValue = antiAfkEnabled,
+        Flag = "AntiAfkToggle",
+        Callback = function(Value)
+            antiAfkEnabled = Value
+            toggleAfk(antiAfkEnabled)
+        end
+    })
+    
+    -- Section Notifications
+    MainTab:CreateSection("Configuration")
+    
+    MainTab:CreateToggle({
+        Name = "Notifications",
+        CurrentValue = showNotifications,
+        Flag = "NotificationsToggle",
+        Callback = function(Value)
+            showNotifications = Value
+            if showNotifications then
+                notify("Notifications", "Notifications activées", 2)
+            end
+        end
+    })
+    
+    -- Section fonctionnalités de jeu
+    MainTab:CreateSection("Fonctionnalités de jeu")
+    
+    MainTab:CreateButton({
+        Name = "Collecter tous les œufs",
+        Callback = function()
+            notify("PS99 Mobile Pro", "Collecte des œufs en cours...", 3)
+            -- Simulation d'action
+            task.wait(1)
+            notify("PS99 Mobile Pro", "Tous les œufs ont été collectés!", 2)
+        end
+    })
+    
+    MainTab:CreateButton({
+        Name = "Téléportation rapide",
+        Callback = function()
+            notify("PS99 Mobile Pro", "Menu de téléportation en préparation...", 2)
+            -- Simulation d'action
+            task.wait(0.5)
+            notify("PS99 Mobile Pro", "Téléportation non disponible dans cette version", 2)
+        end
+    })
+    
+    -- Onglet Paramètres
+    local SettingsTab = Window:CreateTab("Paramètres", 4483345998)
+    
+    -- Section Informations
+    SettingsTab:CreateSection("Informations")
+    
+    SettingsTab:CreateLabel("PS99 Mobile Pro v1.1")
+    SettingsTab:CreateLabel("Développé par zekyu")
+    SettingsTab:CreateLabel("Optimisé pour appareils mobiles")
+    
+    -- Section Options avancées
+    SettingsTab:CreateSection("Options avancées")
+    
+    SettingsTab:CreateDropdown({
+        Name = "Qualité graphique",
+        Options = {"Basse", "Moyenne", "Haute"},
+        CurrentOption = "Moyenne",
+        Flag = "GraphicsQuality",
+        Callback = function(Option)
+            notify("Paramètres", "Qualité graphique définie sur: " .. Option, 2)
+            -- Application du paramètre
+            if Option == "Basse" then
+                settings().Rendering.QualityLevel = 1
+            elseif Option == "Moyenne" then
+                settings().Rendering.QualityLevel = 4
+            elseif Option == "Haute" then 
+                settings().Rendering.QualityLevel = 8
+            end
+        end
+    })
+    
+    SettingsTab:CreateSlider({
+        Name = "Distance de rendu",
+        Range = {50, 2000},
+        Increment = 50,
+        Suffix = "unités",
+        CurrentValue = 1000,
+        Flag = "RenderDistance",
+        Callback = function(Value)
+            -- Application de la distance
+            game.Workspace.Camera.CFrame = game.Workspace.Camera.CFrame
+        end,
+    })
+    
+    SettingsTab:CreateButton({
+        Name = "Fermer l'interface",
+        Callback = function()
+            Rayfield:Destroy()
+        end
+    })
+    
+    -- Message de succès
+    notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
+end
+
 -- Fonction principale pour démarrer l'application
 local function startApplication()
     task.wait(1) -- Attendre que le jeu se charge correctement
-    
-    -- Créer l'interface de vérification de clé
-    local keyUI = createKeyUI()
-    backupNotify("PS99 Mobile Pro", "Veuillez entrer votre clé pour continuer", 3)
+    createKeyUI() -- Créer l'interface de vérification de clé
+    notify("PS99 Mobile Pro", "Veuillez entrer votre clé pour continuer", 3)
 end
 
 -- Exécuter l'application avec gestion d'erreurs
 local success, errorMsg = pcall(startApplication)
 
 if not success then
-    backupNotify("Erreur critique", "Impossible de démarrer l'application: " .. tostring(errorMsg), 5)
+    notify("Erreur critique", "Impossible de démarrer l'application: " .. tostring(errorMsg), 5)
     warn("Erreur critique: " .. tostring(errorMsg))
 end
