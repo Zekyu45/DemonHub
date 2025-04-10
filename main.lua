@@ -1,4 +1,4 @@
--- PS99 Mobile Pro - Système d'authentification par clé optimisé pour mobile avec Rayfield UI
+-- PS99 Mobile Pro - Système d'authentification par clé optimisé pour mobile avec CustomField UI
 -- Version améliorée
 
 -- Variables principales
@@ -10,11 +10,13 @@ local antiAfkEnabled = false
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 
+-- Chargement de CustomField UI
+local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/UI-Interface/CustomFIeld/main/RayField.lua'))()
+
 -- Fonction notification optimisée pour mobile
 local function notify(title, text, duration)
     if not showNotifications then return end
     
-    local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/jensonhirst/Rayfield/main/source'))()
     Rayfield:Notify({
         Title = title,
         Content = text,
@@ -54,10 +56,8 @@ local function setupAntiAfk()
     end
 end
 
--- Fonction pour charger l'interface principale avec Rayfield
+-- Fonction pour charger l'interface principale avec CustomField
 local function createMainUI()
-    local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/jensonhirst/Rayfield/main/source'))()
-    
     local Window = Rayfield:CreateWindow({
         Name = "PS99 Mobile Pro",
         LoadingTitle = "PS99 Mobile Pro",
@@ -111,15 +111,63 @@ local function createMainUI()
         end
     })
     
-    -- Informations
-    local InfoSection = MainTab:CreateSection("Informations")
+    -- Section fonctionnalités de jeu
+    local GameSection = MainTab:CreateSection("Fonctionnalités de jeu")
     
-    MainTab:CreateLabel("PS99 Mobile Pro v1.1 - Développé par zekyu")
+    MainTab:CreateButton({
+        Name = "Collecter tous les œufs",
+        Callback = function()
+            notify("PS99 Mobile Pro", "Collecte des œufs en cours...", 3)
+            -- Code de collecte des œufs irait ici
+            notify("PS99 Mobile Pro", "Tous les œufs ont été collectés!", 2)
+        end
+    })
     
-    -- Onglet Options
-    local OptionsTab = Window:CreateTab("Options", 4483345998)
+    MainTab:CreateButton({
+        Name = "Téléportation rapide",
+        Callback = function()
+            notify("PS99 Mobile Pro", "Menu de téléportation en préparation...", 2)
+            -- Code de téléportation irait ici
+        end
+    })
     
-    OptionsTab:CreateButton({
+    -- Onglet Paramètres
+    local SettingsTab = Window:CreateTab("Paramètres", 4483345998)
+    
+    -- Section Informations
+    local InfoSection = SettingsTab:CreateSection("Informations")
+    
+    SettingsTab:CreateLabel("PS99 Mobile Pro v1.1")
+    SettingsTab:CreateLabel("Développé par zekyu")
+    SettingsTab:CreateLabel("Optimisé pour appareils mobiles")
+    
+    -- Section Options avancées
+    local AdvancedSection = SettingsTab:CreateSection("Options avancées")
+    
+    SettingsTab:CreateDropdown({
+        Name = "Qualité graphique",
+        Options = {"Basse", "Moyenne", "Haute"},
+        CurrentOption = "Moyenne",
+        Flag = "GraphicsQuality",
+        Callback = function(Option)
+            notify("Paramètres", "Qualité graphique définie sur: " .. Option, 2)
+            -- Code pour changer la qualité graphique irait ici
+        end
+    })
+    
+    SettingsTab:CreateSlider({
+        Name = "Distance de rendu",
+        Range = {50, 2000},
+        Increment = 50,
+        Suffix = "unités",
+        CurrentValue = 1000,
+        Flag = "RenderDistance",
+        Callback = function(Value)
+            -- Code pour ajuster la distance de rendu irait ici
+        end,
+    })
+    
+    SettingsTab:CreateButton({
         Name = "Fermer l'interface",
         Callback = function()
             Rayfield:Destroy()
@@ -129,10 +177,8 @@ local function createMainUI()
     notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
 end
 
--- Interface de clé avec Rayfield
+-- Interface de clé avec CustomField
 local function createKeyUI()
-    local Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/jensonhirst/Rayfield/main/source'))()
-    
     local Window = Rayfield:CreateWindow({
         Name = "PS99 Mobile Pro - Authentification",
         LoadingTitle = "PS99 Mobile Pro",
