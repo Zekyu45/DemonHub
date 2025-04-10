@@ -46,21 +46,23 @@ end
 -- Nettoyer les anciennes instances d'UI avant de commencer
 clearPreviousUI("Rayfield")
 
--- Charger Rayfield depuis le nouveau lien
+-- Charger Rayfield - CORRECTION : Utilisation de l'URL raw directement
 local Rayfield = nil
 local RayfieldLoaded = false
 
 local success, errorMsg = pcall(function()
-    Rayfield = loadstring(game:HttpGet('https://github.com/SiriusSoftwareLtd/Rayfield/blob/main/source.lua'))()
+    -- URL raw directement pour éviter les erreurs de chargement
+    Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
     RayfieldLoaded = true
 end)
 
 if not success or not RayfieldLoaded then
     backupNotify("Erreur", "Échec du chargement de Rayfield. Tentative alternative...", 3)
     
-    -- Tentative de chargement alternatif par URL raw
+    -- Tentative de chargement alternatif
     success, errorMsg = pcall(function()
-        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
+        -- URL alternative au cas où
+        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Rayfield/main/source'))()
         RayfieldLoaded = true
     end)
     
@@ -123,6 +125,9 @@ local function createMainUI()
         backupNotify("Erreur", "Interface Rayfield non disponible", 3)
         return
     end
+    
+    -- CORRECTION : Nettoyer les instances précédentes avant de créer la nouvelle
+    clearPreviousUI("Rayfield")
     
     -- Créer la fenêtre principale
     local Window = Rayfield:CreateWindow({
@@ -250,78 +255,21 @@ local function createMainUI()
     notify("PS99 Mobile Pro", "Interface chargée avec succès!", 3)
 end
 
--- Fonctionnalité de vérification de clé avec le nouveau Rayfield
-local function startKeySystem()
-    if not Rayfield then
-        backupNotify("Erreur", "Interface Rayfield non disponible", 3)
-        return
-    end
-    
-    -- Créer la fenêtre d'authentification
-    local Window = Rayfield:CreateWindow({
-        Name = "PS99 Mobile Pro - Authentification",
-        LoadingTitle = "PS99 Mobile Pro",
-        LoadingSubtitle = "Chargement de l'authentification...",
-        ConfigurationSaving = {
-            Enabled = false
-        },
-        KeySystem = true,
-        KeySettings = {
-            Title = "PS99 Mobile Pro - Authentification",
-            Subtitle = "Entrez votre clé d'activation",
-            Note = "La clé est sensible à la casse",
-            FileName = "PS99MobilePro_Key",
-            SaveKey = false,
-            GrabKeyFromSite = false,
-            Key = {correctKey}, -- La clé doit être dans un tableau
-            Actions = {
-                [1] = {
-                    Name = "Discord",
-                    Key = "Q",
-                    KeyPickerOnly = true,
-                    MouseClick = false,
-                    CallbackOnPick = function(v)
-                        backupNotify("Action", "Support Discord non disponible dans cette version", 3)
-                    end
-                }
-            }
-        },
-        Discord = {
-            Enabled = false
-        }
-    })
-    
-    -- Si la vérification de clé est réussie, le script continue naturellement ici
-    -- On attend un peu pour s'assurer que la fenêtre de clé a eu le temps de disparaître
-    task.wait(0.5)
-    
-    -- Détruire la fenêtre d'authentification
-    if Window and Window.Destroy then
-        Window:Destroy()
-    end
-    
-    -- Afficher un message de succès
-    backupNotify("Succès", "Authentification réussie!", 2)
-    
-    -- Créer l'interface principale après un court délai
-    task.wait(1)
-    createMainUI()
-end
-
--- Système de secours pour la vérification de clé au cas où Rayfield échoue
-local function createBackupKeyUI()
-    local backupKeyUI = Instance.new("ScreenGui")
-    backupKeyUI.Name = "PS99KeyBackup"
-    backupKeyUI.ResetOnSpawn = false
+-- CORRECTION : Nouvelle fonction de vérification de clé simplifiée
+local function createKeyUI()
+    -- Créer une interface ScreenGui pour la vérification de clé
+    local keyUI = Instance.new("ScreenGui")
+    keyUI.Name = "PS99KeySystem"
+    keyUI.ResetOnSpawn = false
     
     -- Rendre l'interface persistante
     if syn and syn.protect_gui then
-        syn.protect_gui(backupKeyUI)
-        backupKeyUI.Parent = CoreGui
+        syn.protect_gui(keyUI)
+        keyUI.Parent = CoreGui
     elseif gethui then
-        backupKeyUI.Parent = gethui()
+        keyUI.Parent = gethui()
     else
-        backupKeyUI.Parent = CoreGui
+        keyUI.Parent = CoreGui
     end
     
     -- Cadre principal
@@ -334,7 +282,7 @@ local function createBackupKeyUI()
     mainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
     mainFrame.Active = true
     mainFrame.Draggable = true
-    mainFrame.Parent = backupKeyUI
+    mainFrame.Parent = keyUI
     
     -- Arrondir les coins
     local UICorner = Instance.new("UICorner")
@@ -425,10 +373,21 @@ local function createBackupKeyUI()
             
             backupNotify("Succès!", "Authentification réussie!", 2)
             task.wait(1)
-            backupKeyUI:Destroy() -- Détruire l'UI de secours
+            keyUI:Destroy() -- Détruire l'UI de clé
             
-            -- Charger l'interface principale
+            -- CORRECTION : Créer l'interface principale dans un nouveau thread
             task.spawn(function()
+                -- S'assurer que Rayfield est bien chargé avant de créer l'interface
+                if not RayfieldLoaded then
+                    -- Tenter de recharger Rayfield si nécessaire
+                    pcall(function()
+                        Rayfield = loadstring(game:HttpGet('https://raw.githubusercontent.com/SiriusSoftwareLtd/Rayfield/main/source.lua'))()
+                        RayfieldLoaded = true
+                    end)
+                end
+                
+                -- Attendre un peu pour être sûr que tout est bien chargé
+                task.wait(0.5)
                 createMainUI()
             end)
         else
@@ -453,26 +412,20 @@ local function createBackupKeyUI()
             validateButton.Text = "VALIDER LA CLÉ"
         end
     end)
+    
+    return keyUI
 end
 
--- Fonction principale pour démarrer l'application
+-- CORRECTION : Fonction améliorée pour démarrer l'application
 local function startApplication()
     task.wait(1) -- Attendre que le jeu se charge correctement
     
-    -- Essayer d'utiliser le système de clé Rayfield
-    if RayfieldLoaded then
-        -- Essayer de démarrer le système de clé Rayfield
-        local success, errorMsg = pcall(startKeySystem)
-        
-        if not success then
-            warn("Échec du système de clé Rayfield: " .. tostring(errorMsg))
-            -- Utiliser l'interface de secours si Rayfield échoue
-            createBackupKeyUI()
-        end
-    else
-        -- Utiliser l'interface de secours si Rayfield n'a pas été chargé
-        createBackupKeyUI()
-    end
+    -- CORRECTION : Simplifié le système de vérification de clé
+    -- Créer directement l'interface de vérification de clé personnalisée
+    local keyUI = createKeyUI()
+    
+    -- Ajouter un message d'information
+    backupNotify("PS99 Mobile Pro", "Veuillez entrer votre clé pour continuer", 3)
 end
 
 -- Exécuter l'application avec gestion d'erreurs
