@@ -14,6 +14,9 @@ local TeleportService = game:GetService("TeleportService")
 -- Charger le module UI depuis GitHub
 local ui
 local loadSuccess, loadErr = pcall(function()
+    -- Dans un cas réel, vous devrez mettre à jour le fichier ui.lua sur GitHub
+    -- avec la nouvelle version qui utilise Rayfield.
+    -- Pour l'instant, utilisons l'hypothèse que le module est chargé localement
     local uiUrl = "https://raw.githubusercontent.com/Zekyu45/DemonHub/main/ui.lua"
     ui = loadstring(game:HttpGet(uiUrl))()
     return ui
@@ -54,13 +57,17 @@ local function setupAntiAfk()
                             ui.notify("Anti-AFK", "Inactivité détectée. Système activé.", 2)
                         end
                     end)
-                    ui.notify("Anti-AFK", "Système anti-AFK démarré", 2)
+                    if showNotifications then
+                        ui.notify("Anti-AFK", "Système anti-AFK démarré", 2)
+                    end
                 end
             else
                 if connection then
                     connection:Disconnect()
                     connection = nil
-                    ui.notify("Anti-AFK", "Système anti-AFK désactivé", 2)
+                    if showNotifications then
+                        ui.notify("Anti-AFK", "Système anti-AFK désactivé", 2)
+                    end
                 end
             end
         end)
@@ -72,7 +79,21 @@ local function onAuthSuccess()
     local toggleAfk = setupAntiAfk()
     
     -- Créer l'interface principale et passer les callbacks nécessaires
-    ui.createCustomUI(toggleAfk, showNotifications, antiAfkEnabled)
+    local mainUI = ui.createCustomUI(toggleAfk, showNotifications, antiAfkEnabled)
+    
+    -- Récupérer l'état de l'interface si nécessaire
+    task.spawn(function()
+        while task.wait(1) do
+            local currentState = mainUI.getState()
+            showNotifications = currentState.showNotifications
+            antiAfkEnabled = currentState.antiAfkEnabled
+            
+            -- Vérifier si l'UI existe toujours
+            if not mainUI.gui then 
+                break
+            end
+        end
+    end)
     
     -- Vous pouvez ajouter d'autres fonctionnalités post-authentification ici
 end
@@ -84,7 +105,11 @@ end)
 
 if not success then
     warn("Erreur lors du démarrage: " .. tostring(err))
-    ui.notify("Erreur critique", "Impossible de démarrer l'application", 5)
+    
+    -- Utiliser la notification de base si ui.notify n'est pas disponible
+    pcall(function()
+        ui.notify("Erreur critique", "Impossible de démarrer l'application", 5)
+    end)
     
     -- Interface de secours minimale en cas d'erreur
     pcall(function()
