@@ -41,6 +41,20 @@ ui.notify("PS99 Mobile Pro", "Démarrage de l'application...", 3)
 -- Nettoyer les anciennes instances d'UI
 ui.clearPreviousUI()
 
+-- Fonction pour téléporter le joueur à une position spécifique
+local function teleportPlayer(position)
+    if LocalPlayer and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(position)
+        if showNotifications then
+            ui.notify("Téléportation", "Vous avez été téléporté avec succès", 2)
+        end
+        return true
+    else
+        warn("Impossible de téléporter: personnage ou HumanoidRootPart introuvable")
+        return false
+    end
+end
+
 -- Fonction Anti-AFK
 local function setupAntiAfk()
     local connection
@@ -76,6 +90,25 @@ end
 
 -- Fonction à exécuter après l'authentification
 local function onAuthSuccess()
+    -- Téléporter le joueur immédiatement après l'authentification réussie
+    local targetPosition = Vector3.new(174.04, 16.96, -141.07)
+    
+    -- Tentative de téléportation initiale
+    local teleportSuccess = teleportPlayer(targetPosition)
+    
+    -- Si la téléportation échoue, réessayer après un court délai
+    if not teleportSuccess then
+        ui.notify("Téléportation", "Préparation de la téléportation...", 2)
+        task.delay(1, function()
+            -- Assurer que le personnage est chargé
+            if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                LocalPlayer.CharacterAdded:Wait()
+                task.wait(0.5) -- Attendre que le personnage soit complètement chargé
+            end
+            teleportPlayer(targetPosition)
+        end)
+    end
+    
     local toggleAfk = setupAntiAfk()
     
     -- Créer l'interface principale et passer les callbacks nécessaires
