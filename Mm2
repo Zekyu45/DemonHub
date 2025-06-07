@@ -16,7 +16,7 @@ local TELEPORT_DELAY = 2 -- Délai en secondes entre chaque téléportation
 local COIN_DETECTION_NAMES = {"Coin", "MainCoin", "CoinContainer", "Piece"} -- Noms possibles des pièces
 local SEARCH_DISTANCE = 1000 -- Distance maximale de recherche
 local COLLECTION_CHECK_DELAY = 0.2 -- Délai pour vérifier si une pièce a été collectée
-local MAX_COINBAG_VALUE = 40;50 -- Valeur maximale du sac de pièces (ajustez selon le jeu)
+local MAX_COINBAG_VALUE = 40 -- Valeur maximale du sac de pièces (ajustez selon le jeu)
 
 -- Variables de contrôle
 local isRunning = false
