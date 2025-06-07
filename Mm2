@@ -1,0 +1,312 @@
+-- Script de téléportation automatique sur les pièces
+-- Services nécessaires
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
+
+-- Variables globales
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+local humanoid = character:WaitForChild("Humanoid")
+
+-- Configuration
+local TELEPORT_DELAY = 1 -- Délai en secondes entre chaque téléportation
+local COIN_DETECTION_NAMES = {"Coin", "MainCoin", "CoinContainer", "Piece"} -- Noms possibles des pièces
+local SEARCH_DISTANCE = 1000 -- Distance maximale de recherche
+local COLLECTION_CHECK_DELAY = 0.2 -- Délai pour vérifier si une pièce a été collectée
+
+-- Variables de contrôle
+local isRunning = false
+local coinsList = {}
+local currentCoinIndex = 1
+local collectedCoins = {} -- Table pour suivre les pièces déjà collectées
+
+-- Fonction pour vérifier si une pièce est encore disponible/collectible
+local function isCoinAvailable(coinObject)
+    if not coinObject or not coinObject.Parent then
+        return false
+    end
+    
+    -- Vérifier si cette pièce a déjà été marquée comme collectée
+    if collectedCoins[coinObject] then
+        return false
+    end
+    
+    -- Vérifier si l'objet est visible et actif
+    if coinObject:IsA("BasePart") then
+        -- Une pièce est disponible si elle est visible (transparency < 1) et peut être touchée
+        local isVisible = coinObject.Transparency < 1
+        local hasValidPosition = coinObject.Position and coinObject.Position.Magnitude > 0
+        return isVisible and hasValidPosition
+    elseif coinObject:IsA("Model") then
+        -- Pour un modèle, vérifier s'il a des parts visibles
+        local hasVisibleParts = false
+        for _, part in pairs(coinObject:GetChildren()) do
+            if part:IsA("BasePart") and part.Transparency < 1 then
+                hasVisibleParts = true
+                break
+            end
+        end
+        return hasVisibleParts
+    end
+    
+    return false
+end
+
+-- Fonction pour marquer une pièce comme collectée
+local function markCoinAsCollected(coinObject)
+    if coinObject then
+        collectedCoins[coinObject] = true
+    end
+end
+
+-- Fonction pour nettoyer les pièces collectées de la mémoire
+local function cleanupCollectedCoins()
+    local cleanedCoins = {}
+    for coin, _ in pairs(collectedCoins) do
+        -- Garder seulement les pièces qui existent encore (pour éviter les fuites mémoire)
+        if coin and coin.Parent then
+            cleanedCoins[coin] = true
+        end
+    end
+    collectedCoins = cleanedCoins
+end
+
+-- Fonction pour détecter toutes les pièces disponibles dans le workspace
+local function detectCoins()
+    local foundCoins = {}
+    
+    -- Fonction récursive pour chercher dans tous les descendants
+    local function searchInDescendants(parent)
+        for _, child in pairs(parent:GetDescendants()) do
+            -- Vérifier si l'objet correspond à un nom de pièce
+            for _, coinName in pairs(COIN_DETECTION_NAMES) do
+                if string.find(child.Name:lower(), coinName:lower()) then
+                    -- Vérifier si la pièce est disponible avant de l'ajouter
+                    if isCoinAvailable(child) then
+                        -- Vérifier si l'objet a une position (Part, MeshPart, etc.)
+                        if child:IsA("BasePart") and child.Position then
+                            table.insert(foundCoins, {
+                                object = child,
+                                position = child.Position,
+                                name = child.Name
+                            })
+                        -- Si c'est un Model, prendre sa position primaire ou le premier part
+                        elseif child:IsA("Model") then
+                            local primaryPart = child.PrimaryPart
+                            if primaryPart then
+                                table.insert(foundCoins, {
+                                    object = child,
+                                    position = primaryPart.Position,
+                                    name = child.Name
+                                })
+                            else
+                                -- Chercher le premier Part dans le modèle
+                                for _, part in pairs(child:GetChildren()) do
+                                    if part:IsA("BasePart") then
+                                        table.insert(foundCoins, {
+                                            object = child,
+                                            position = part.Position,
+                                            name = child.Name
+                                        })
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Chercher dans tout le workspace
+    searchInDescendants(Workspace)
+    
+    return foundCoins
+end
+
+-- Fonction pour téléporter le joueur à une position
+local function teleportToPosition(position)
+    if humanoidRootPart and position then
+        -- Ajouter un petit offset en hauteur pour éviter de se coincer dans le sol
+        local teleportPosition = Vector3.new(position.X, position.Y + 5, position.Z)
+        humanoidRootPart.CFrame = CFrame.new(teleportPosition)
+        
+        print("Téléporté à la position:", teleportPosition)
+    end
+end
+
+-- Fonction pour trier les pièces par distance
+local function sortCoinsByDistance(coins)
+    if not humanoidRootPart then return coins end
+    
+    table.sort(coins, function(a, b)
+        local distanceA = (a.position - humanoidRootPart.Position).Magnitude
+        local distanceB = (b.position - humanoidRootPart.Position).Magnitude
+        return distanceA < distanceB
+    end)
+    
+    return coins
+end
+
+-- Fonction principale de téléportation automatique
+local function startAutoTeleport()
+    isRunning = true
+    print("Démarrage de la téléportation automatique sur les pièces...")
+    
+    spawn(function()
+        while isRunning do
+            -- Détecter toutes les pièces disponibles
+            coinsList = detectCoins()
+            
+            if #coinsList > 0 then
+                -- Trier par distance pour optimiser le parcours
+                coinsList = sortCoinsByDistance(coinsList)
+                
+                print("Pièces disponibles détectées:", #coinsList)
+                
+                -- Téléporter sur chaque pièce disponible
+                for i, coinData in pairs(coinsList) do
+                    if not isRunning then break end
+                    
+                    -- Triple vérification : la pièce existe, est disponible et n'a pas été collectée
+                    if coinData.object and coinData.object.Parent and isCoinAvailable(coinData.object) then
+                        teleportToPosition(coinData.position)
+                        print("Téléporté sur pièce disponible:", coinData.name)
+                        
+                        -- Petite attente pour laisser le temps à la collection de se faire
+                        task.wait(COLLECTION_CHECK_DELAY)
+                        
+                        -- Vérifier si la pièce a été collectée après téléportation
+                        if not isCoinAvailable(coinData.object) then
+                            markCoinAsCollected(coinData.object)
+                            print("✓ Pièce collectée:", coinData.name)
+                        else
+                            print("⚠ Pièce non collectée:", coinData.name)
+                        end
+                        
+                        -- Attendre le délai spécifié
+                        task.wait(TELEPORT_DELAY - COLLECTION_CHECK_DELAY)
+                        
+                    else
+                        print("❌ Pièce non disponible ignorée:", coinData.name)
+                    end
+                    
+                    -- Re-détecter les pièces toutes les 3 téléportations pour capturer les nouvelles
+                    if i % 3 == 0 then
+                        print("🔄 Re-détection des nouvelles pièces...")
+                        cleanupCollectedCoins() -- Nettoyer la mémoire
+                        task.wait(0.5) -- Petite pause pour laisser le temps aux nouvelles pièces d'apparaître
+                        break -- Sortir de la boucle pour re-détecter
+                    end
+                end
+            else
+                print("Aucune pièce disponible détectée, nouvelle recherche dans 2 secondes...")
+                task.wait(2)
+            end
+            
+            -- Petite pause avant la prochaine détection complète
+            task.wait(0.5)
+        end
+    end)
+end
+
+-- Fonction pour arrêter la téléportation
+local function stopAutoTeleport()
+    isRunning = false
+    collectedCoins = {} -- Réinitialiser la liste des pièces collectées
+    print("Téléportation automatique arrêtée.")
+end
+
+-- Gestion de la reconnexion du personnage
+player.CharacterAdded:Connect(function(newCharacter)
+    character = newCharacter
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    humanoid = character:WaitForChild("Humanoid")
+    print("Nouveau personnage détecté, redémarrage du script...")
+end)
+
+-- Interface simple pour contrôler le script
+local function createControlGUI()
+    local screenGui = Instance.new("ScreenGui")
+    screenGui.Name = "CoinTeleportControl"
+    screenGui.Parent = player:WaitForChild("PlayerGui")
+    
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(0, 200, 0, 100)
+    frame.Position = UDim2.new(0, 10, 0, 10)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+    frame.BorderSizePixel = 2
+    frame.Parent = screenGui
+    
+    local startButton = Instance.new("TextButton")
+    startButton.Size = UDim2.new(0, 90, 0, 30)
+    startButton.Position = UDim2.new(0, 5, 0, 5)
+    startButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
+    startButton.Text = "START"
+    startButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    startButton.Parent = frame
+    
+    local stopButton = Instance.new("TextButton")
+    stopButton.Size = UDim2.new(0, 90, 0, 30)
+    stopButton.Position = UDim2.new(0, 105, 0, 5)
+    stopButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+    stopButton.Text = "STOP"
+    stopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    stopButton.Parent = frame
+    
+    local statusLabel = Instance.new("TextLabel")
+    statusLabel.Size = UDim2.new(1, 0, 0, 30)
+    statusLabel.Position = UDim2.new(0, 0, 0, 40)
+    statusLabel.BackgroundTransparency = 1
+    statusLabel.Text = "Status: Arrêté"
+    statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    statusLabel.Parent = frame
+    
+    local coinsLabel = Instance.new("TextLabel")
+    coinsLabel.Size = UDim2.new(1, 0, 0, 25)
+    coinsLabel.Position = UDim2.new(0, 0, 0, 70)
+    coinsLabel.BackgroundTransparency = 1
+    coinsLabel.Text = "Pièces: 0"
+    coinsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    coinsLabel.TextScaled = true
+    coinsLabel.Parent = frame
+    
+    -- Événements des boutons
+    startButton.MouseButton1Click:Connect(function()
+        if not isRunning then
+            startAutoTeleport()
+            statusLabel.Text = "Status: En cours"
+        end
+    end)
+    
+    stopButton.MouseButton1Click:Connect(function()
+        if isRunning then
+            stopAutoTeleport()
+            statusLabel.Text = "Status: Arrêté"
+        end
+    end)
+    
+    -- Mise à jour du compteur de pièces
+    spawn(function()
+        while true do
+            coinsLabel.Text = "Pièces: " .. #coinsList
+            task.wait(1)
+        end
+    end)
+end
+
+-- Initialisation
+print("Script de téléportation sur les pièces chargé!")
+print("Commandes disponibles:")
+print("- startAutoTeleport() : Démarrer la téléportation automatique")
+print("- stopAutoTeleport() : Arrêter la téléportation automatique")
+
+-- Créer l'interface de contrôle
+createControlGUI()
+
+-- Démarrage automatique (optionnel - décommentez la ligne suivante)
+-- startAutoTeleport()
