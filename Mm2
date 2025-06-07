@@ -12,7 +12,7 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
 -- Configuration
-local TELEPORT_DELAY = 1 -- Délai en secondes entre chaque téléportation
+local TELEPORT_DELAY = 2 -- Délai en secondes entre chaque téléportation
 local COIN_DETECTION_NAMES = {"Coin", "MainCoin", "CoinContainer", "Piece"} -- Noms possibles des pièces
 local SEARCH_DISTANCE = 1000 -- Distance maximale de recherche
 local COLLECTION_CHECK_DELAY = 0.2 -- Délai pour vérifier si une pièce a été collectée
