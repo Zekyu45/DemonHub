@@ -1,10 +1,9 @@
--- Script de collecte automatique de pièces avec déplacement naturel
+-- Script de téléportation automatique sur les pièces avec auto-reset
 -- Services nécessaires
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
-local PathfindingService = game:GetService("PathfindingService")
 
 -- Variables globales
 local player = Players.LocalPlayer
@@ -13,30 +12,114 @@ local humanoidRootPart = character:WaitForChild("HumanoidRootPart")
 local humanoid = character:WaitForChild("Humanoid")
 
 -- Configuration
-local MOVEMENT_SPEED = 50 -- Vitesse de déplacement (ajustable)
-local COIN_DETECTION_NAMES = {"Coin", "MainCoin", "CoinContainer", "Piece"}
-local SEARCH_DISTANCE = 1000
-local COLLECTION_CHECK_DELAY = 0.5
-local MOVEMENT_TYPE = "walk" -- "walk", "fly", ou "tween"
+local TELEPORT_DELAY = 2 -- Délai en secondes entre chaque téléportation
+local COIN_DETECTION_NAMES = {"Coin", "MainCoin", "CoinContainer", "Piece"} -- Noms possibles des pièces
+local SEARCH_DISTANCE = 1000 -- Distance maximale de recherche
+local COLLECTION_CHECK_DELAY = 0.2 -- Délai pour vérifier si une pièce a été collectée
+local MAX_COINBAG_VALUE = 40;50 -- Valeur maximale du sac de pièces (ajustez selon le jeu)
 
 -- Variables de contrôle
 local isRunning = false
 local coinsList = {}
-local collectedCoins = {}
-local currentMovementTween = nil
-local bodyVelocity = nil
-local bodyPosition = nil
+local currentCoinIndex = 1
+local collectedCoins = {} -- Table pour suivre les pièces déjà collectées
+local lastCoinBagValue = 0
 
--- Fonction pour vérifier si une pièce est encore disponible
+-- Fonction pour obtenir la valeur actuelle du CoinBag
+local function getCoinBagValue()
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if not playerGui then return 0 end
+    
+    -- Chercher dans toutes les GUI possibles
+    local function searchForCoinBag(parent)
+        for _, child in pairs(parent:GetDescendants()) do
+            if child:IsA("TextLabel") or child:IsA("TextButton") then
+                local text = child.Text
+                -- Chercher les patterns de sac de pièces
+                if string.find(text:lower(), "coinbag") or 
+                   string.find(text:lower(), "coin") and string.find(text, "/") or
+                   string.match(text, "%d+/%d+") then
+                    
+                    -- Extraire la valeur actuelle (avant le "/")
+                    local current = string.match(text, "(%d+)")
+                    if current then
+                        return tonumber(current) or 0
+                    end
+                end
+            end
+        end
+        return nil
+    end
+    
+    local value = searchForCoinBag(playerGui)
+    return value or 0
+end
+
+-- Fonction pour détecter si le sac est plein
+local function isCoinBagFull()
+    local currentValue = getCoinBagValue()
+    
+    -- Si on trouve une valeur avec un pattern comme "20/20" ou similaire
+    local playerGui = player:FindFirstChild("PlayerGui")
+    if playerGui then
+        for _, child in pairs(playerGui:GetDescendants()) do
+            if child:IsA("TextLabel") or child:IsA("TextButton") then
+                local text = child.Text
+                -- Chercher le pattern "nombre/nombre"
+                local current, max = string.match(text, "(%d+)/(%d+)")
+                if current and max then
+                    current = tonumber(current)
+                    max = tonumber(max)
+                    if current and max and current >= max then
+                        print("💰 Sac de pièces plein détecté:", current .. "/" .. max)
+                        return true
+                    end
+                end
+            end
+        end
+    end
+    
+    -- Méthode alternative : si la valeur n'augmente plus après plusieurs collectes
+    if currentValue >= MAX_COINBAG_VALUE then
+        return true
+    end
+    
+    return false
+end
+
+-- Fonction pour reset le personnage
+local function resetCharacter()
+    print("🔄 Reset du personnage - Sac de pièces plein!")
+    if humanoid then
+        humanoid.Health = 0
+    end
+    
+    -- Réinitialiser les variables
+    collectedCoins = {}
+    coinsList = {}
+    lastCoinBagValue = 0
+    
+    -- Attendre la respawn
+    player.CharacterAdded:Wait()
+    character = player.Character
+    humanoidRootPart = character:WaitForChild("HumanoidRootPart")
+    humanoid = character:WaitForChild("Humanoid")
+    
+    print("✅ Personnage respawné, reprise de la collecte!")
+end
+
+-- Fonction pour vérifier si une pièce est encore disponible/collectible
 local function isCoinAvailable(coinObject)
     if not coinObject or not coinObject.Parent then
         return false
     end
     
+    -- Vérifier si cette pièce a déjà été marquée comme collectée
     if collectedCoins[coinObject] then
         return false
     end
     
+    -- Vérifier si l'objet est visible et actif
     if coinObject:IsA("BasePart") then
         local isVisible = coinObject.Transparency < 1
         local hasValidPosition = coinObject.Position and coinObject.Position.Magnitude > 0
@@ -62,7 +145,18 @@ local function markCoinAsCollected(coinObject)
     end
 end
 
--- Fonction pour détecter toutes les pièces
+-- Fonction pour nettoyer les pièces collectées de la mémoire
+local function cleanupCollectedCoins()
+    local cleanedCoins = {}
+    for coin, _ in pairs(collectedCoins) do
+        if coin and coin.Parent then
+            cleanedCoins[coin] = true
+        end
+    end
+    collectedCoins = cleanedCoins
+end
+
+-- Fonction pour détecter toutes les pièces disponibles dans le workspace
 local function detectCoins()
     local foundCoins = {}
     
@@ -108,6 +202,34 @@ local function detectCoins()
     return foundCoins
 end
 
+-- Fonction pour téléporter le joueur à une position avec Tween uniquement
+local function teleportToPosition(position)
+    if humanoidRootPart and position then
+        local teleportPosition = Vector3.new(position.X, position.Y + 5, position.Z)
+        
+        -- Créer un tween pour une téléportation fluide
+        local tweenInfo = TweenInfo.new(
+            0.5, -- Durée
+            Enum.EasingStyle.Quart,
+            Enum.EasingDirection.Out,
+            0, -- Répétitions
+            false, -- Reverse
+            0 -- DelayTime
+        )
+        
+        local tween = TweenService:Create(
+            humanoidRootPart,
+            tweenInfo,
+            {CFrame = CFrame.new(teleportPosition)}
+        )
+        
+        tween:Play()
+        tween.Completed:Wait() -- Attendre que le tween soit terminé
+        
+        print("🚀 Téléporté avec tween à:", teleportPosition)
+    end
+end
+
 -- Fonction pour trier les pièces par distance
 local function sortCoinsByDistance(coins)
     if not humanoidRootPart then return coins end
@@ -121,173 +243,65 @@ local function sortCoinsByDistance(coins)
     return coins
 end
 
--- Fonction pour arrêter le mouvement actuel
-local function stopMovement()
-    if currentMovementTween then
-        currentMovementTween:Cancel()
-        currentMovementTween = nil
-    end
-    
-    if bodyVelocity then
-        bodyVelocity:Destroy()
-        bodyVelocity = nil
-    end
-    
-    if bodyPosition then
-        bodyPosition:Destroy()
-        bodyPosition = nil
-    end
-    
-    humanoid:MoveTo(humanoidRootPart.Position)
-end
-
--- Fonction pour se déplacer vers une position (marche)
-local function walkToPosition(targetPosition)
-    return new(Promise(function(resolve, reject)
-        if not humanoidRootPart or not humanoid then
-            reject("Personnage non disponible")
-            return
-        end
-        
-        humanoid:MoveTo(targetPosition)
-        
-        local connection
-        local timeoutConnection
-        
-        -- Connexion pour détecter quand on arrive
-        connection = humanoid.MoveToFinished:Connect(function(reached)
-            connection:Disconnect()
-            if timeoutConnection then timeoutConnection:Disconnect() end
-            
-            if reached then
-                resolve(true)
-            else
-                reject("Destination non atteignable")
-            end
-        end)
-        
-        -- Timeout de sécurité
-        timeoutConnection = task.delay(10, function()
-            connection:Disconnect()
-            reject("Timeout de déplacement")
-        end)
-    end))
-end
-
--- Fonction pour voler vers une position
-local function flyToPosition(targetPosition)
-    stopMovement()
-    
-    -- Créer BodyPosition pour voler
-    bodyPosition = Instance.new("BodyPosition")
-    bodyPosition.MaxForce = Vector3.new(4000, 4000, 4000)
-    bodyPosition.Position = targetPosition
-    bodyPosition.D = 500 -- Damping
-    bodyPosition.P = 3000 -- Power
-    bodyPosition.Parent = humanoidRootPart
-    
-    print("Vol vers:", targetPosition)
-end
-
--- Fonction pour se déplacer avec un tween (mouvement fluide)
-local function tweenToPosition(targetPosition)
-    stopMovement()
-    
-    local distance = (targetPosition - humanoidRootPart.Position).Magnitude
-    local duration = distance / MOVEMENT_SPEED
-    
-    local tweenInfo = TweenInfo.new(
-        duration,
-        Enum.EasingStyle.Linear,
-        Enum.EasingDirection.InOut,
-        0,
-        false,
-        0
-    )
-    
-    currentMovementTween = TweenService:Create(
-        humanoidRootPart,
-        tweenInfo,
-        {CFrame = CFrame.new(targetPosition)}
-    )
-    
-    currentMovementTween:Play()
-    
-    print("Tween vers:", targetPosition)
-    
-    return currentMovementTween.Completed:Wait()
-end
-
--- Fonction pour se déplacer vers une position selon le mode sélectionné
-local function moveToPosition(targetPosition)
-    local safePosition = Vector3.new(targetPosition.X, targetPosition.Y + 5, targetPosition.Z)
-    
-    if MOVEMENT_TYPE == "walk" then
-        return walkToPosition(safePosition)
-    elseif MOVEMENT_TYPE == "fly" then
-        flyToPosition(safePosition)
-        -- Attendre d'être proche de la cible
-        while humanoidRootPart and (humanoidRootPart.Position - safePosition).Magnitude > 8 do
-            task.wait(0.1)
-        end
-    elseif MOVEMENT_TYPE == "tween" then
-        tweenToPosition(safePosition)
-    end
-end
-
--- Fonction principale de collecte automatique
-local function startAutoCollection()
+-- Fonction principale de téléportation automatique
+local function startAutoTeleport()
     isRunning = true
-    print("Démarrage de la collecte automatique de pièces...")
-    print("Mode de déplacement:", MOVEMENT_TYPE)
+    print("🎯 Démarrage de la téléportation automatique avec auto-reset!")
     
     spawn(function()
         while isRunning do
+            -- Vérifier si le sac est plein avant de continuer
+            if isCoinBagFull() then
+                resetCharacter()
+                task.wait(3) -- Attendre un peu après le reset
+                continue
+            end
+            
+            -- Détecter toutes les pièces disponibles
             coinsList = detectCoins()
             
             if #coinsList > 0 then
                 coinsList = sortCoinsByDistance(coinsList)
-                print("Pièces disponibles détectées:", #coinsList)
+                print("💰 Pièces disponibles détectées:", #coinsList)
                 
                 for i, coinData in pairs(coinsList) do
                     if not isRunning then break end
                     
-                    if coinData.object and coinData.object.Parent and isCoinAvailable(coinData.object) then
-                        print("Déplacement vers pièce:", coinData.name)
-                        
-                        -- Se déplacer vers la pièce
-                        local success = pcall(function()
-                            moveToPosition(coinData.position)
-                        end)
-                        
-                        if success then
-                            -- Attendre un peu pour la collection
-                            task.wait(COLLECTION_CHECK_DELAY)
-                            
-                            -- Vérifier si collectée
-                            if not isCoinAvailable(coinData.object) then
-                                markCoinAsCollected(coinData.object)
-                                print("✓ Pièce collectée:", coinData.name)
-                            else
-                                print("⚠ Pièce non collectée:", coinData.name)
-                            end
-                        else
-                            print("❌ Échec du déplacement vers:", coinData.name)
-                        end
-                        
-                        -- Pause entre les pièces
-                        task.wait(0.5)
+                    -- Vérifier le sac avant chaque téléportation
+                    if isCoinBagFull() then
+                        print("💼 Sac plein détecté pendant la collecte!")
+                        break
                     end
                     
-                    -- Re-détecter périodiquement
+                    if coinData.object and coinData.object.Parent and isCoinAvailable(coinData.object) then
+                        teleportToPosition(coinData.position)
+                        print("✨ Téléporté sur pièce:", coinData.name)
+                        
+                        task.wait(COLLECTION_CHECK_DELAY)
+                        
+                        if not isCoinAvailable(coinData.object) then
+                            markCoinAsCollected(coinData.object)
+                            print("✅ Pièce collectée:", coinData.name)
+                            
+                            -- Afficher la valeur actuelle du sac
+                            local bagValue = getCoinBagValue()
+                            if bagValue > 0 then
+                                print("💰 Sac de pièces:", bagValue)
+                            end
+                        end
+                        
+                        task.wait(TELEPORT_DELAY - COLLECTION_CHECK_DELAY)
+                    end
+                    
                     if i % 3 == 0 then
-                        print("🔄 Re-détection des pièces...")
+                        print("🔄 Re-détection des nouvelles pièces...")
+                        cleanupCollectedCoins()
                         task.wait(0.5)
                         break
                     end
                 end
             else
-                print("Aucune pièce détectée, nouvelle recherche...")
+                print("🔍 Aucune pièce disponible, nouvelle recherche dans 2 secondes...")
                 task.wait(2)
             end
             
@@ -296,12 +310,11 @@ local function startAutoCollection()
     end)
 end
 
--- Fonction pour arrêter la collecte
-local function stopAutoCollection()
+-- Fonction pour arrêter la téléportation
+local function stopAutoTeleport()
     isRunning = false
-    stopMovement()
     collectedCoins = {}
-    print("Collecte automatique arrêtée.")
+    print("⛔ Téléportation automatique arrêtée.")
 end
 
 -- Gestion de la reconnexion du personnage
@@ -309,204 +322,109 @@ player.CharacterAdded:Connect(function(newCharacter)
     character = newCharacter
     humanoidRootPart = character:WaitForChild("HumanoidRootPart")
     humanoid = character:WaitForChild("Humanoid")
-    stopMovement()
-    print("Nouveau personnage détecté.")
+    print("👤 Nouveau personnage détecté, redémarrage du script...")
 end)
 
--- Interface de contrôle améliorée
+-- Interface simple pour contrôler le script
 local function createControlGUI()
     local screenGui = Instance.new("ScreenGui")
-    screenGui.Name = "CoinCollectorControl"
+    screenGui.Name = "CoinTeleportControl"
     screenGui.Parent = player:WaitForChild("PlayerGui")
     
     local frame = Instance.new("Frame")
-    frame.Size = UDim2.new(0, 250, 0, 150)
+    frame.Size = UDim2.new(0, 250, 0, 120)
     frame.Position = UDim2.new(0, 10, 0, 10)
-    frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+    frame.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
     frame.BorderSizePixel = 2
     frame.Parent = screenGui
     
-    -- Titre
-    local titleLabel = Instance.new("TextLabel")
-    titleLabel.Size = UDim2.new(1, 0, 0, 25)
-    titleLabel.Position = UDim2.new(0, 0, 0, 0)
-    titleLabel.BackgroundTransparency = 1
-    titleLabel.Text = "Collecteur de Pièces"
-    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    titleLabel.TextScaled = true
-    titleLabel.Font = Enum.Font.SourceSansBold
-    titleLabel.Parent = frame
-    
-    -- Boutons Start/Stop
     local startButton = Instance.new("TextButton")
-    startButton.Size = UDim2.new(0, 70, 0, 25)
-    startButton.Position = UDim2.new(0, 10, 0, 30)
-    startButton.BackgroundColor3 = Color3.fromRGB(0, 200, 0)
+    startButton.Size = UDim2.new(0, 110, 0, 30)
+    startButton.Position = UDim2.new(0, 5, 0, 5)
+    startButton.BackgroundColor3 = Color3.fromRGB(0, 255, 0)
     startButton.Text = "START"
     startButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     startButton.Parent = frame
     
     local stopButton = Instance.new("TextButton")
-    stopButton.Size = UDim2.new(0, 70, 0, 25)
-    stopButton.Position = UDim2.new(0, 90, 0, 30)
-    stopButton.BackgroundColor3 = Color3.fromRGB(200, 0, 0)
+    stopButton.Size = UDim2.new(0, 110, 0, 30)
+    stopButton.Position = UDim2.new(0, 125, 0, 5)
+    stopButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
     stopButton.Text = "STOP"
     stopButton.TextColor3 = Color3.fromRGB(255, 255, 255)
     stopButton.Parent = frame
     
-    -- Sélecteur de mode de déplacement
-    local modeLabel = Instance.new("TextLabel")
-    modeLabel.Size = UDim2.new(0, 50, 0, 20)
-    modeLabel.Position = UDim2.new(0, 10, 0, 60)
-    modeLabel.BackgroundTransparency = 1
-    modeLabel.Text = "Mode:"
-    modeLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    modeLabel.TextScaled = true
-    modeLabel.Parent = frame
-    
-    local walkButton = Instance.new("TextButton")
-    walkButton.Size = UDim2.new(0, 50, 0, 20)
-    walkButton.Position = UDim2.new(0, 65, 0, 60)
-    walkButton.BackgroundColor3 = Color3.fromRGB(0, 150, 255)
-    walkButton.Text = "Marche"
-    walkButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    walkButton.TextScaled = true
-    walkButton.Parent = frame
-    
-    local flyButton = Instance.new("TextButton")
-    flyButton.Size = UDim2.new(0, 50, 0, 20)
-    flyButton.Position = UDim2.new(0, 120, 0, 60)
-    flyButton.BackgroundColor3 = Color3.fromRGB(255, 150, 0)
-    flyButton.Text = "Vol"
-    flyButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    flyButton.TextScaled = true
-    flyButton.Parent = frame
-    
-    local tweenButton = Instance.new("TextButton")
-    tweenButton.Size = UDim2.new(0, 50, 0, 20)
-    tweenButton.Position = UDim2.new(0, 175, 0, 60)
-    tweenButton.BackgroundColor3 = Color3.fromRGB(150, 0, 255)
-    tweenButton.Text = "Tween"
-    tweenButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-    tweenButton.TextScaled = true
-    tweenButton.Parent = frame
-    
-    -- Contrôle de vitesse
-    local speedLabel = Instance.new("TextLabel")
-    speedLabel.Size = UDim2.new(0, 60, 0, 20)
-    speedLabel.Position = UDim2.new(0, 10, 0, 85)
-    speedLabel.BackgroundTransparency = 1
-    speedLabel.Text = "Vitesse: " .. MOVEMENT_SPEED
-    speedLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    speedLabel.TextScaled = true
-    speedLabel.Parent = frame
-    
-    local speedSlider = Instance.new("TextBox")
-    speedSlider.Size = UDim2.new(0, 50, 0, 20)
-    speedSlider.Position = UDim2.new(0, 75, 0, 85)
-    speedSlider.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
-    speedSlider.Text = tostring(MOVEMENT_SPEED)
-    speedSlider.TextColor3 = Color3.fromRGB(255, 255, 255)
-    speedSlider.TextScaled = true
-    speedSlider.Parent = frame
-    
-    -- Labels de statut
     local statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(1, 0, 0, 20)
-    statusLabel.Position = UDim2.new(0, 0, 0, 110)
+    statusLabel.Size = UDim2.new(1, 0, 0, 25)
+    statusLabel.Position = UDim2.new(0, 0, 0, 40)
     statusLabel.BackgroundTransparency = 1
-    statusLabel.Text = "Status: Arrêté | Mode: " .. MOVEMENT_TYPE
+    statusLabel.Text = "Status: Arrêté"
     statusLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-    statusLabel.TextScaled = true
     statusLabel.Parent = frame
     
     local coinsLabel = Instance.new("TextLabel")
-    coinsLabel.Size = UDim2.new(1, 0, 0, 20)
-    coinsLabel.Position = UDim2.new(0, 0, 0, 125)
+    coinsLabel.Size = UDim2.new(1, 0, 0, 25)
+    coinsLabel.Position = UDim2.new(0, 0, 0, 65)
     coinsLabel.BackgroundTransparency = 1
     coinsLabel.Text = "Pièces détectées: 0"
     coinsLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
     coinsLabel.TextScaled = true
     coinsLabel.Parent = frame
     
-    -- Fonction pour mettre à jour l'affichage des modes
-    local function updateModeDisplay()
-        walkButton.BackgroundColor3 = MOVEMENT_TYPE == "walk" and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(0, 150, 255)
-        flyButton.BackgroundColor3 = MOVEMENT_TYPE == "fly" and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(255, 150, 0)
-        tweenButton.BackgroundColor3 = MOVEMENT_TYPE == "tween" and Color3.fromRGB(0, 255, 0) or Color3.fromRGB(150, 0, 255)
-        statusLabel.Text = "Status: " .. (isRunning and "En cours" or "Arrêté") .. " | Mode: " .. MOVEMENT_TYPE
-    end
+    local bagLabel = Instance.new("TextLabel")
+    bagLabel.Size = UDim2.new(1, 0, 0, 25)
+    bagLabel.Position = UDim2.new(0, 0, 0, 90)
+    bagLabel.BackgroundTransparency = 1
+    bagLabel.Text = "Sac: 0"
+    bagLabel.TextColor3 = Color3.fromRGB(255, 255, 0)
+    bagLabel.TextScaled = true
+    bagLabel.Parent = frame
     
     -- Événements des boutons
     startButton.MouseButton1Click:Connect(function()
         if not isRunning then
-            startAutoCollection()
-            updateModeDisplay()
+            startAutoTeleport()
+            statusLabel.Text = "Status: En cours (Auto-Reset)"
         end
     end)
     
     stopButton.MouseButton1Click:Connect(function()
         if isRunning then
-            stopAutoCollection()
-            updateModeDisplay()
+            stopAutoTeleport()
+            statusLabel.Text = "Status: Arrêté"
         end
     end)
     
-    walkButton.MouseButton1Click:Connect(function()
-        MOVEMENT_TYPE = "walk"
-        updateModeDisplay()
-    end)
-    
-    flyButton.MouseButton1Click:Connect(function()
-        MOVEMENT_TYPE = "fly"
-        updateModeDisplay()
-    end)
-    
-    tweenButton.MouseButton1Click:Connect(function()
-        MOVEMENT_TYPE = "tween"
-        updateModeDisplay()
-    end)
-    
-    speedSlider.FocusLost:Connect(function()
-        local newSpeed = tonumber(speedSlider.Text)
-        if newSpeed and newSpeed > 0 and newSpeed <= 200 then
-            MOVEMENT_SPEED = newSpeed
-            speedLabel.Text = "Vitesse: " .. MOVEMENT_SPEED
-            if humanoid then
-                humanoid.WalkSpeed = MOVEMENT_SPEED
-            end
-        else
-            speedSlider.Text = tostring(MOVEMENT_SPEED)
-        end
-    end)
-    
-    -- Mise à jour périodique
+    -- Mise à jour des labels
     spawn(function()
         while true do
             coinsLabel.Text = "Pièces détectées: " .. #coinsList
+            
+            local bagValue = getCoinBagValue()
+            bagLabel.Text = "Sac: " .. bagValue
+            
+            -- Changer la couleur si le sac est presque plein
+            if bagValue >= MAX_COINBAG_VALUE * 0.8 then
+                bagLabel.TextColor3 = Color3.fromRGB(255, 100, 100) -- Rouge
+            else
+                bagLabel.TextColor3 = Color3.fromRGB(255, 255, 0) -- Jaune
+            end
+            
             task.wait(1)
         end
     end)
-    
-    updateModeDisplay()
 end
 
 -- Initialisation
-print("=== Collecteur de Pièces Amélioré ===")
-print("Modes disponibles:")
-print("- Marche: Utilise le système de pathfinding naturel")
-print("- Vol: Vole directement vers les pièces")
-print("- Tween: Mouvement fluide et contrôlé")
-print("=====================================")
+print("🚀 Script de téléportation avec auto-reset chargé!")
+print("📋 Fonctionnalités:")
+print("   • Téléportation par tween uniquement")
+print("   • Auto-reset quand le sac de pièces est plein")
+print("   • Interface de contrôle")
+print("   • Détection automatique des CoinBags")
 
+-- Créer l'interface de contrôle
 createControlGUI()
 
--- Fonctions globales pour contrôle manuel
-_G.startCollection = startAutoCollection
-_G.stopCollection = stopAutoCollection
-_G.setMovementType = function(type)
-    if type == "walk" or type == "fly" or type == "tween" then
-        MOVEMENT_TYPE = type
-        print("Mode de déplacement changé:", type)
-    end
-end
+-- Démarrage automatique (décommentez si désiré)
+-- startAutoTeleport()
